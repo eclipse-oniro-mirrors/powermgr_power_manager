@@ -57,6 +57,8 @@ taihe_shared_library("power_manager_runninglock_taihe_native") {
     "ipc:ipc_core",
   ]
 
+  version_script = "libpower_manager_runninglock_taihe_native.map"
+
   subsystem_name = "powermgr"
   part_name = "${powermgr_part_name}"
 }

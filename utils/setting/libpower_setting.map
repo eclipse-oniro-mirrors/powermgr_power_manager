@@ -1,0 +1,49 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{
+  global:
+    /* SettingObserver ABI: construction vtable/VTT/vtable (CFI cross-DSO, mangled).
+       Required: SettingObserver inherits DataAbilityObserverStub cross-DSO. */
+    _ZTCN4OHOS8PowerMgr15SettingObserverE*;
+    _ZTTN4OHOS8PowerMgr15SettingObserverE;
+    _ZTVN4OHOS8PowerMgr15SettingObserverE;
+    _ZTVN4OHOS8PowerMgr15SettingProviderE;
+    /* SettingObserver thunks (CFI cross-DSO, mangled) */
+    _ZThn*_N4OHOS8PowerMgr15SettingObserver*;
+    _ZTv*_N4OHOS8PowerMgr15SettingObserver*;
+    /* Hidden by local:*: 24 std::__h regex vtables + 5 SETTING_* constexpr (cc=0, header duplicates) */
+    extern "C++" {
+      /* SettingProvider public API (all declared in setting_provider.h,
+         per step 4: public header symbols default KEEP) */
+      OHOS::PowerMgr::SettingProvider::IsValidKey*;
+      OHOS::PowerMgr::SettingProvider::GetInstance*;
+      OHOS::PowerMgr::SettingProvider::GetIntValue*;
+      OHOS::PowerMgr::SettingProvider::PutIntValue*;
+      OHOS::PowerMgr::SettingProvider::GetBoolValue*;
+      OHOS::PowerMgr::SettingProvider::GetLongValue*;
+      OHOS::PowerMgr::SettingProvider::PutBoolValue*;
+      OHOS::PowerMgr::SettingProvider::PutLongValue*;
+      OHOS::PowerMgr::SettingProvider::CreateObserver*;
+      OHOS::PowerMgr::SettingProvider::GetStringValue*;
+      OHOS::PowerMgr::SettingProvider::PutStringValue*;
+      OHOS::PowerMgr::SettingProvider::AddMultiUserKey*;
+      OHOS::PowerMgr::SettingProvider::RegisterObserver*;
+      OHOS::PowerMgr::SettingProvider::UnregisterObserver*;
+      OHOS::PowerMgr::SettingProvider::UpdateCurrentUserId*;
+      OHOS::PowerMgr::SettingProvider::CopyDataForUpdateScene*;
+    };
+  local:
+    *;
+};
+

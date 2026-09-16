@@ -39,6 +39,8 @@ ohos_shared_library("power_permission") {
     "${powermgr_utils_path}:coverage_flags",
   ]
 
+  version_script = "libpower_permission.map"
+
   public_configs = [ ":public_config" ]
 
   external_deps = [

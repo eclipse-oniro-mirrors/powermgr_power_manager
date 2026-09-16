@@ -37,6 +37,8 @@ ohos_shared_library("power_ffrt") {
 
   sources = [ "src/ffrt_utils.cpp" ]
 
+  version_script = "libpower_ffrt.map"
+
   configs = [ ":private_config" ]
 
   public_configs = [ ":public_config" ]

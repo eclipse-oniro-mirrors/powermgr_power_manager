@@ -1,0 +1,91 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{
+  global:
+    *;
+  local:
+    /* --- std::__h iostream/filebuf/stringbuf (libc++.so is canonical provider) ---
+       16 methods + 8 vtable/VTT/construction vtable, all cc=0 */
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE4syncEv;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE5imbueERKNS_6localeE;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE6setbufEPcl;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE7seekoffExNS_8ios_base7seekdirEj;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE7seekposENS_4fposI11__mbstate_tEEj;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE8overflowEi;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE9pbackfailEi;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEE9underflowEv;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEEC2Ev;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEED0Ev;
+    _ZNSt3__h13basic_filebufIcNS_11char_traitsIcEEED2Ev;
+    _ZNSt3__h15basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEE3strERKNS_12basic_stringIcS2_S4_EE;
+    _ZNSt3__h15basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEE7seekoffExNS_8ios_base7seekdirEj;
+    _ZNSt3__h15basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEE8overflowEi;
+    _ZNSt3__h15basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEE9pbackfailEi;
+    _ZNSt3__h15basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEE9underflowEv;
+    _ZTCNSt3__h14basic_ifstreamIcNS_11char_traitsIcEEEE0_NS_13basic_istreamIcS2_EE;
+    _ZTCNSt3__h19basic_istringstreamIcNS_11char_traitsIcEENS_9allocatorIcEEEE0_NS_13basic_istreamIcS2_EE;
+    _ZTTNSt3__h14basic_ifstreamIcNS_11char_traitsIcEEEE;
+    _ZTTNSt3__h19basic_istringstreamIcNS_11char_traitsIcEENS_9allocatorIcEEEE;
+    _ZTVNSt3__h13basic_filebufIcNS_11char_traitsIcEEEE;
+    _ZTVNSt3__h14basic_ifstreamIcNS_11char_traitsIcEEEE;
+    _ZTVNSt3__h15basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEEE;
+    _ZTVNSt3__h19basic_istringstreamIcNS_11char_traitsIcEENS_9allocatorIcEEEE;
+
+    /* --- SettingProvider static constexpr constants (header duplicate, cc=0) ---
+       5 SETTING_* constants + 2 member vars + 4 guard vars */
+    _ZN4OHOS8PowerMgr15SettingProvider23SETTING_URI_USER_SECUREE;
+    _ZN4OHOS8PowerMgr15SettingProvider29SETTING_DURING_CALL_STATE_KEYE;
+    _ZN4OHOS8PowerMgr15SettingProvider31SETTING_POWER_WAKEUP_DOUBLE_KEYE;
+    _ZN4OHOS8PowerMgr15SettingProvider31SETTING_POWER_WAKEUP_PICKUP_KEYE;
+    _ZN4OHOS8PowerMgr15SettingProvider32SETTING_POWER_WAKEUP_SOURCES_KEYE;
+    _ZN4OHOS8PowerMgr15SettingProvider10remoteObj_E;
+    _ZN4OHOS8PowerMgr15SettingProvider19needMultiUserStrMapE;
+    _ZGVN4OHOS8PowerMgr15SettingProvider10remoteObj_E;
+    _ZGVN4OHOS8PowerMgr15SettingProvider19needMultiUserStrMapE;
+
+    /* --- ffrt wrapper functions (template instances, cc=0) --- */
+    _ZN4ffrt21exec_function_wrapperINSt3__h8functionIFvvEEEEEvPv;
+    _ZN4ffrt21exec_function_wrapperIRKNSt3__h8functionIFvvEEEEEvPv;
+    _ZN4ffrt24destroy_function_wrapperINSt3__h8functionIFvvEEEEEvPv;
+    _ZN4ffrt24destroy_function_wrapperIRKNSt3__h8functionIFvvEEEEEvPv;
+    /* --- DevStandbyMgr static vars + guard vars (header duplicate, cc=0) --- */
+    _ZN4OHOS13DevStandbyMgr15saErrCodeMsgMapE;
+    _ZN4OHOS13DevStandbyMgr18paramErrCodeMsgMapE;
+    _ZGVN4OHOS13DevStandbyMgr15saErrCodeMsgMapE;
+    _ZGVN4OHOS13DevStandbyMgr18paramErrCodeMsgMapE;
+
+    /* --- BrokerDelegator vtables (service/client duplicate, hide service side) ---
+       Per experience: BrokerDelegatorBase vtable + 6 template instances, all cc=0 */
+    _ZTVN4OHOS19BrokerDelegatorBaseE;
+    _ZTVN4OHOS15BrokerDelegatorINS_8PowerMgr18PowerMgrProxyAsyncEEE;
+    _ZTVN4OHOS15BrokerDelegatorINS_8PowerMgr21RunningLockTokenProxyEEE;
+    _ZTVN4OHOS15BrokerDelegatorINS_8PowerMgr22SyncSleepCallbackProxyEEE;
+    _ZTVN4OHOS15BrokerDelegatorINS_8PowerMgr23PowerStateCallbackProxyEEE;
+    _ZTVN4OHOS15BrokerDelegatorINS_8PowerMgr25ScreenOffPreCallbackProxyEEE;
+    _ZTVN4OHOS15BrokerDelegatorINS_8PowerMgr29PowerRunningLockCallbackProxyEEE;
+
+    /* --- Singleton/DelayedRefSingleton instance/mutex + guard vars (header duplicate, cc=0) --- */
+    _ZN4OHOS9SingletonINS_9HiviewDFX7XCollieEE9instance_E;
+    _ZGVN4OHOS9SingletonINS_9HiviewDFX7XCollieEE9instance_E;
+    _ZN4OHOS19DelayedRefSingletonINS_15DisplayPowerMgr21DisplayPowerMgrClientEE6mutex_E;
+    _ZN4OHOS19DelayedRefSingletonINS_15DisplayPowerMgr21DisplayPowerMgrClientEE9instance_E;
+    _ZGVN4OHOS19DelayedRefSingletonINS_15DisplayPowerMgr21DisplayPowerMgrClientEE6mutex_E;
+    /* --- std::__h function::__func vtables for BrokerCreator (template instances, cc=0) --- */
+    _ZTVNSt3__h10__function6__funcIN4OHOS13BrokerCreatorINS2_8PowerMgr18PowerMgrProxyAsyncEEENS_9allocatorIS6_EEFNS2_4sptrINS2_13IRemoteBrokerEEERKNS9_INS2_13IRemoteObjectEEEEEE;
+    _ZTVNSt3__h10__function6__funcIN4OHOS13BrokerCreatorINS2_8PowerMgr21RunningLockTokenProxyEEENS_9allocatorIS6_EEFNS2_4sptrINS2_13IRemoteBrokerEEERKNS9_INS2_13IRemoteObjectEEEEEE;
+    _ZTVNSt3__h10__function6__funcIN4OHOS13BrokerCreatorINS2_8PowerMgr22SyncSleepCallbackProxyEEENS_9allocatorIS6_EEFNS2_4sptrINS2_13IRemoteBrokerEEERKNS9_INS2_13IRemoteObjectEEEEEE;
+    _ZTVNSt3__h10__function6__funcIN4OHOS13BrokerCreatorINS2_8PowerMgr23PowerStateCallbackProxyEEENS_9allocatorIS6_EEFNS2_4sptrINS2_13IRemoteBrokerEEERKNS9_INS2_13IRemoteObjectEEEEEE;
+    _ZTVNSt3__h10__function6__funcIN4OHOS13BrokerCreatorINS2_8PowerMgr25ScreenOffPreCallbackProxyEEENS_9allocatorIS6_EEFNS2_4sptrINS2_13IRemoteBrokerEEERKNS9_INS2_13IRemoteObjectEEEEEE;
+    _ZTVNSt3__h10__function6__funcIN4OHOS13BrokerCreatorINS2_8PowerMgr29PowerRunningLockCallbackProxyEEENS_9allocatorIS6_EEFNS2_4sptrINS2_13IRemoteBrokerEEERKNS9_INS2_13IRemoteObjectEEEEEE;
+};
