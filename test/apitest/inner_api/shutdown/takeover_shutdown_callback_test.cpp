@@ -261,6 +261,11 @@ HWTEST_F(TakeOverShutdownCallbackTest, TakeOverShutdownCallback005, TestSize.Lev
     EXPECT_CALL(*g_mockPowerAction, Reboot(std::string("test_case"))).Times(1);
     powerMgrClient.RebootDevice("test_case"); // reboot will not be taken over
 
+    auto shutdownController = g_service->GetShutdownController();
+    while (shutdownController->started_) {
+        std::this_thread::yield();
+    }
+
     EXPECT_CALL(*g_mockPowerAction, Shutdown(std::string("test_case"))).Times(1);
     powerMgrClient.ShutDownDevice("test_case"); // shutdown will not be taken over
 
