@@ -2720,7 +2720,12 @@ void PowerMgrService::UnRegisterExternalScreenListener()
 
 void PowerMgrService::ExternalScreenListener::OnConnect(uint64_t screenId)
 {
-    if (screenId >= VIRTUAL_SCREEN_START_ID) {
+    auto screenInfo = Rosen::ScreenManagerLite::GetInstance().GetScreenInfoById(screenId);
+    if (screenInfo == nullptr) {
+        POWER_HILOGE(COMP_SVC, "get screenInfoById fail, screenId: %{public}u", static_cast<uint32_t>(screenId));
+        return;
+    }
+    if (screenInfo->GetScreenTypeInfo() == Rosen::ScreenTypeInfo::VIRTUAL) {
         POWER_HILOGI(
             COMP_SVC, "Ignore virtual screen connecting event, screenId: %{public}u", static_cast<uint32_t>(screenId));
         return;
@@ -2767,7 +2772,18 @@ void PowerMgrService::ExternalScreenListener::OnConnect(uint64_t screenId)
 
 void PowerMgrService::ExternalScreenListener::OnDisconnect(uint64_t screenId)
 {
-    if (screenId >= VIRTUAL_SCREEN_START_ID) {
+    auto screenInfo = Rosen::ScreenManagerLite::GetInstance().GetScreenInfoById(screenId);
+    if (screenInfo == nullptr) {
+        // Screen may already be removed from ScreenManagerLite at disconnect time;
+        // fall back to the legacy ID-based check to avoid missing real external screen disconnects.
+        POWER_HILOGW(COMP_SVC, "GetScreenInfoById fail, fall back to id check, screenId: %{public}u",
+            static_cast<uint32_t>(screenId));
+        if (screenId >= VIRTUAL_SCREEN_START_ID) {
+            POWER_HILOGI(COMP_SVC, "Ignore virtual screen disconnecting event, screenId: %{public}u",
+                static_cast<uint32_t>(screenId));
+            return;
+        }
+    } else if (screenInfo->GetScreenTypeInfo() == Rosen::ScreenTypeInfo::VIRTUAL) {
         POWER_HILOGI(COMP_SVC, "Ignore virtual screen disconnecting event, screenId: %{public}u",
             static_cast<uint32_t>(screenId));
         return;
@@ -2812,7 +2828,12 @@ void PowerMgrService::ExternalScreenListener::OnDisconnect(uint64_t screenId)
 
 void PowerMgrService::AbnormalExternalScreenConnectListener::NotifyAbnormalScreenConnectChange(uint64_t screenId)
 {
-    if (screenId >= VIRTUAL_SCREEN_START_ID) {
+    auto screenInfo = Rosen::ScreenManagerLite::GetInstance().GetScreenInfoById(screenId);
+    if (screenInfo == nullptr) {
+        POWER_HILOGE(COMP_SVC, "get screenInfoById fail, screenId: %{public}u", static_cast<uint32_t>(screenId));
+        return;
+    }
+    if (screenInfo->GetScreenTypeInfo() == Rosen::ScreenTypeInfo::VIRTUAL) {
         POWER_HILOGI(COMP_SVC, "Ignore virtual screen abnormal connecting event, screenId: %{public}u",
             static_cast<uint32_t>(screenId));
         return;
