@@ -559,7 +559,8 @@ napi_value PowerNapi::SetPowerKeyFilteringStrategy(napi_env env, napi_callback_i
         return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
     }
 
-    if (strategy < 0 || strategy >= static_cast<int32_t>(PowerKeyFilteringStrategy::STRATEGY_MAX)) {
+    if (strategy < 0 ||
+        strategy >= static_cast<int32_t>(PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING)) {
         POWER_HILOGE(FEATURE_INPUT, "strategy is not right.");
         return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
     }
