@@ -113,6 +113,32 @@ void PowerMgrNotify::PublishScreenOnEvents(int64_t eventTime, const std::string&
 #endif
 }
 
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+void PowerMgrNotify::PublishScreenOnEventsToUser(int64_t eventTime, const std::string& reason, int32_t userId)
+{
+    if (screenOnWant_ == nullptr || publishInfo_ == nullptr) {
+        POWER_HILOGE(COMP_SVC, "PublishScreenOnEventsToUser: invalid parameter");
+        return;
+    }
+    screenOnWant_->SetParam("reason", reason);
+    CommonEventData event(*screenOnWant_);
+    bool ret = CommonEventManager::PublishCommonEventAsUser(event, *publishInfo_, userId);
+    POWER_HILOGI(FEATURE_WAKEUP, "PublishScreenOnEventsToUser userId=%{public}d ret=%{public}d", userId, ret);
+}
+
+void PowerMgrNotify::PublishScreenOffEventsToUser(int64_t eventTime, const std::string& reason, int32_t userId)
+{
+    if (screenOffWant_ == nullptr || publishInfo_ == nullptr) {
+        POWER_HILOGE(COMP_SVC, "PublishScreenOffEventsToUser: invalid parameter");
+        return;
+    }
+    screenOffWant_->SetParam("reason", reason);
+    CommonEventData event(*screenOffWant_);
+    bool ret = CommonEventManager::PublishCommonEventAsUser(event, *publishInfo_, userId);
+    POWER_HILOGI(FEATURE_SUSPEND, "PublishScreenOffEventsToUser userId=%{public}d ret=%{public}d", userId, ret);
+}
+#endif
+
 #ifdef POWER_MANAGER_ENABLE_FORCE_SLEEP_BROADCAST
 void PowerMgrNotify::PublishEnterForceSleepEvents(int64_t eventTime)
 {

@@ -439,6 +439,13 @@ private:
     void RegisterExternalCallback();
     void UnregisterExternalCallback();
     bool IsDeviceSupportedTypeUserIdle();
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+    // Cockpit multi-screen multi-user: register display_manager multi-screen callback on display SA
+    // online and handle each per-display state change with per-user broadcast isolation.
+    void RegisterMultiUserScreenCallback();
+    void UnregisterMultiUserScreenCallback();
+    void HandleMultiUserScreenChange(uint64_t displayId, bool isScreenOn, uint32_t reason);
+#endif
 #ifdef POWER_MANAGER_SCREEN_SAVER
     void ScreenSaverInit();
 #endif
@@ -449,6 +456,12 @@ private:
     bool isExternalScreenWakeup_ {false};
     std::atomic_bool isHdiRemove_ { false };
     int32_t powerkeyBlockedFoldMode_ {-1};
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+    // Testability seam for caller-identity resolution in IsScreenOn: when >= 0 this value is used as the
+    // calling uid instead of IPCSkeleton::GetCallingUid(), so the multi-user branch can be driven without
+    // relying on global IPC interposition. Defaults to -1 (resolve via IPCSkeleton) in production.
+    int32_t screenQueryCallingUid_ {-1};
+#endif
     static std::atomic_bool foldScreenFlag_;
     ffrt::mutex wakeupMutex_;
     ffrt::mutex suspendMutex_;

@@ -70,6 +70,9 @@
 #include <dlfcn.h>
 #endif
 #include "death_recipient_manager.h"
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+#include "multi_user_screen_adapter.h"
+#endif
 
 using namespace OHOS::AppExecFwk;
 using namespace OHOS::AAFwk;
@@ -931,6 +934,9 @@ void PowerMgrService::OnAddSystemAbility(int32_t systemAbilityId, const std::str
         POWER_HILOGI(COMP_SVC, "get DISPLAY_MANAGER_SERVICE_ID in PowerService");
         isNeedReInit_  = true;
         RegisterBootCompletedCallback();
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+        RegisterMultiUserScreenCallback();
+#endif
     }
 
 #ifdef HAS_DISPLAY_MANAGER_PART
@@ -945,6 +951,10 @@ void PowerMgrService::OnAddSystemAbility(int32_t systemAbilityId, const std::str
             isNeedReInit_  = true;
             RegisterBootCompletedCallback();
             displayManagerServiceCrash_ = false;
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+            UnregisterMultiUserScreenCallback();
+            RegisterMultiUserScreenCallback();
+#endif
         }
     }
 #endif
@@ -979,6 +989,57 @@ void PowerMgrService::OnAddSystemAbilityInner(int32_t systemAbilityId, [[maybe_u
         isHdiRemove_.store(false, std::memory_order_relaxed);
     }
 }
+
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+void PowerMgrService::RegisterMultiUserScreenCallback()
+{
+    auto self = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    if (self == nullptr) {
+        POWER_HILOGE(COMP_SVC, "RegisterMultiUserScreenCallback: service instance null");
+        return;
+    }
+    MultiUserScreenAdapter::SetScreenChangeHandler(
+        [self](uint64_t displayId, bool isScreenOn, uint32_t reason) {
+            self->HandleMultiUserScreenChange(displayId, isScreenOn, reason);
+        });
+    bool ok = MultiUserScreenAdapter::RegisterScreenStateCallback();
+    POWER_HILOGI(COMP_SVC, "RegisterMultiUserScreenCallback ok=%{public}d", ok);
+}
+
+void PowerMgrService::UnregisterMultiUserScreenCallback()
+{
+    bool ok = MultiUserScreenAdapter::UnregisterScreenStateCallback();
+    POWER_HILOGI(COMP_SVC, "UnregisterMultiUserScreenCallback ok=%{public}d", ok);
+}
+
+void PowerMgrService::HandleMultiUserScreenChange(uint64_t displayId, bool isScreenOn, uint32_t reason)
+{
+    std::lock_guard lock(stateMutex_);
+    if (powerMgrNotify_ == nullptr) {
+        POWER_HILOGW(COMP_SVC, "HandleMultiUserScreenChange: notify not ready");
+        return;
+    }
+    int64_t eventTime = GetTickCount();
+    std::string reasonStr = std::to_string(reason);
+    // 1. Per-user broadcast: route this display's event to the user space it belongs to.
+    int32_t userId = MultiUserScreenAdapter::GetUserIdByDisplayId(displayId);
+    if (userId != MultiUserScreenAdapter::INVALID_USER_ID) {
+        if (isScreenOn) {
+            powerMgrNotify_->PublishScreenOnEventsToUser(eventTime, reasonStr, userId);
+        } else {
+            powerMgrNotify_->PublishScreenOffEventsToUser(eventTime, reasonStr, userId);
+        }
+    }
+    // 2. Whole-machine transition: only emit the整机 SCREEN_ON/OFF broadcast on a state flip
+    //    (all-off -> any-on emits SCREEN_ON; any-on -> all-off emits SCREEN_OFF).
+    bool othersOn = MultiUserScreenAdapter::IsAnyScreenOn(displayId);
+    if (isScreenOn && !othersOn) {
+        powerMgrNotify_->PublishScreenOnEvents(eventTime, reasonStr);
+    } else if (!isScreenOn && !othersOn) {
+        powerMgrNotify_->PublishScreenOffEvents(eventTime, reasonStr);
+    }
+}
+#endif
 
 #ifdef MSDP_MOVEMENT_ENABLE
 static const char* MOVEMENT_SUBSCRIBER_CONFIG = "RegisterMovementCallback";
@@ -1535,11 +1596,29 @@ PowerState PowerMgrService::GetState()
 bool PowerMgrService::IsScreenOn(bool needPrintLog)
 {
     std::lock_guard lock(stateMutex_);
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+    int32_t uid = (screenQueryCallingUid_ >= 0) ? screenQueryCallingUid_
+                                                : static_cast<int32_t>(IPCSkeleton::GetCallingUid());
+    bool isScreenOn = false;
+    if (MultiUserScreenAdapter::IsMultiUserUid(uid)) {
+        // U10X caller: report its own bound display state.
+        int32_t userId = MultiUserScreenAdapter::GetUserIdFromUid(uid);
+        isScreenOn = MultiUserScreenAdapter::IsScreenOnForUser(userId);
+    } else {
+        // SA / U0 caller: report whole-machine state (any screen on).
+        isScreenOn = MultiUserScreenAdapter::IsAnyScreenOn();
+    }
+    if (needPrintLog) {
+        POWER_HILOGD(COMP_SVC, "isScreenOn: %{public}d, uid: %{public}d", isScreenOn, uid);
+    }
+    return isScreenOn;
+#else
     auto isScreenOn = powerStateMachine_->IsScreenOn();
     if (needPrintLog) {
         POWER_HILOGD(COMP_SVC, "isScreenOn: %{public}d", isScreenOn);
     }
     return isScreenOn;
+#endif
 }
 
 bool PowerMgrService::IsFoldScreenOn()

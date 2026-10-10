@@ -31,6 +31,12 @@ public:
     void RegisterPublishEvents();
     void PublishScreenOffEvents(int64_t eventTime, const std::string& reason);
     void PublishScreenOnEvents(int64_t eventTime, const std::string& reason);
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+    // Cockpit multi-screen multi-user: publish the screen on/off event only to a specific user space
+    // (the OS-account bound to a given display), instead of the whole-machine broadcast above.
+    void PublishScreenOffEventsToUser(int64_t eventTime, const std::string& reason, int32_t userId);
+    void PublishScreenOnEventsToUser(int64_t eventTime, const std::string& reason, int32_t userId);
+#endif
 #ifdef POWER_MANAGER_ENABLE_FORCE_SLEEP_BROADCAST
     void PublishEnterForceSleepEvents(int64_t eventTime);
     void PublishExitForceSleepEvents(int64_t eventTime);
