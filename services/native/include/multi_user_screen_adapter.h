@@ -57,6 +57,13 @@ public:
     // requiring a live display_manager registration.
     static void SetScreenChangeHandler(ScreenChangeHandler handler);
 
+    // Drive the registered ScreenChangeHandler once per screen with each display's CURRENT state, right
+    // after registration. This "replays" a synthetic state callback per screen so the initial per-user
+    // (U10X) and whole-machine (U0) broadcasts fire for screens that were already on/off before powermgr
+    // registered (stable screens emit no real callback). All screen querying lives here, in the adapter;
+    // PowerMgrService only schedules the broadcast + the all-off fallback.
+    static void InitMultiScreenNotify(uint32_t reason);
+
     // Caller-identity helpers (pure local arithmetic, no IPC).
     static int32_t GetUserIdFromUid(int32_t uid);
     static inline bool IsMultiUserUid(int32_t uid)

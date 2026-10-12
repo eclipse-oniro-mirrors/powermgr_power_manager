@@ -86,13 +86,25 @@ bool CommonEventManager::PublishCommonEventAsUser(
     const CommonEventData& data, const CommonEventPublishInfo& publishInfo, const int32_t& userId)
 {
     (void)publishInfo;
-    g_mockCommonEvent.callCount++;
-    g_mockCommonEvent.lastUserId = userId;
     const auto& action = data.GetWant().GetAction();
-    if (action == CommonEventSupport::COMMON_EVENT_SCREEN_ON) {
-        g_mockCommonEvent.onCallCount++;
-    } else if (action == CommonEventSupport::COMMON_EVENT_SCREEN_OFF) {
-        g_mockCommonEvent.offCallCount++;
+    // userId == 0 (U0/system) is the whole-machine ToU0 broadcast (PublishScreenOn/OffEventsToU0);
+    // non-zero userId is the per-user (ToUser) broadcast. Tracked separately so tests can assert
+    // whole-machine vs per-user counts.
+    if (userId == 0) {
+        g_mockCommonEvent.wholeMachineCallCount++;
+        if (action == CommonEventSupport::COMMON_EVENT_SCREEN_ON) {
+            g_mockCommonEvent.wholeMachineOnCount++;
+        } else if (action == CommonEventSupport::COMMON_EVENT_SCREEN_OFF) {
+            g_mockCommonEvent.wholeMachineOffCount++;
+        }
+    } else {
+        g_mockCommonEvent.callCount++;
+        g_mockCommonEvent.lastUserId = userId;
+        if (action == CommonEventSupport::COMMON_EVENT_SCREEN_ON) {
+            g_mockCommonEvent.onCallCount++;
+        } else if (action == CommonEventSupport::COMMON_EVENT_SCREEN_OFF) {
+            g_mockCommonEvent.offCallCount++;
+        }
     }
     return g_mockCommonEvent.ret;
 }

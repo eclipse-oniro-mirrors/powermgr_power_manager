@@ -935,7 +935,9 @@ void PowerMgrService::OnAddSystemAbility(int32_t systemAbilityId, const std::str
         isNeedReInit_  = true;
         RegisterBootCompletedCallback();
 #ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+        UnregisterMultiUserScreenCallback();
         RegisterMultiUserScreenCallback();
+        InitMultiScreenNotify();
 #endif
     }
 
@@ -951,10 +953,6 @@ void PowerMgrService::OnAddSystemAbility(int32_t systemAbilityId, const std::str
             isNeedReInit_  = true;
             RegisterBootCompletedCallback();
             displayManagerServiceCrash_ = false;
-#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
-            UnregisterMultiUserScreenCallback();
-            RegisterMultiUserScreenCallback();
-#endif
         }
     }
 #endif
@@ -1006,6 +1004,34 @@ void PowerMgrService::RegisterMultiUserScreenCallback()
     POWER_HILOGI(COMP_SVC, "RegisterMultiUserScreenCallback ok=%{public}d", ok);
 }
 
+void PowerMgrService::InitMultiScreenNotify()
+{
+    // Snapshot the whole-machine baseline before the replay. The replay drives each screen's current
+    // state through the same edge-triggered handler used for real callbacks (the adapter owns the
+    // per-screen querying), so it emits the per-user (U10X) initial event for every screen and the
+    // whole-machine (U0) on-flip (off->on) for any-on topology.
+    bool prevBefore = false;
+    {
+        std::lock_guard lock(stateMutex_);
+        prevBefore = prevAnyScreenOn_;
+    }
+    constexpr uint32_t INIT_REASON = 0; // STATE_CHANGE_REASON_DEFAULT
+    MultiUserScreenAdapter::InitMultiScreenNotify(INIT_REASON);
+    // Edge-triggered replay can't emit the initial SCREEN_OFF when the system starts all-off (no
+    // off->off flip); supplement it directly so U0 learns the all-off baseline. Guard with prevBefore:
+    // if the aggregate flipped on->off during the replay (prevBefore && !prevAfter), the flip already
+    // emitted OFF, so don't double-emit. Only supplement when it was off before AND stayed off.
+    std::lock_guard lock(stateMutex_);
+    bool prevAfter = prevAnyScreenOn_;
+    if (!prevAfter && !prevBefore && powerMgrNotify_ != nullptr) {
+        int64_t eventTime = GetTickCount();
+        std::string reasonStr = std::to_string(INIT_REASON);
+        powerMgrNotify_->PublishScreenOffEventsToU0(eventTime, reasonStr);
+    }
+    POWER_HILOGI(COMP_SVC, "InitMultiScreenNotify done prevBefore=%{public}d prevAfter=%{public}d",
+        prevBefore, prevAfter);
+}
+
 void PowerMgrService::UnregisterMultiUserScreenCallback()
 {
     bool ok = MultiUserScreenAdapter::UnregisterScreenStateCallback();
@@ -1030,14 +1056,19 @@ void PowerMgrService::HandleMultiUserScreenChange(uint64_t displayId, bool isScr
             powerMgrNotify_->PublishScreenOffEventsToUser(eventTime, reasonStr, userId);
         }
     }
-    // 2. Whole-machine transition: only emit the整机 SCREEN_ON/OFF broadcast on a state flip
-    //    (all-off -> any-on emits SCREEN_ON; any-on -> all-off emits SCREEN_OFF).
-    bool othersOn = MultiUserScreenAdapter::IsAnyScreenOn(displayId);
-    if (isScreenOn && !othersOn) {
-        powerMgrNotify_->PublishScreenOnEvents(eventTime, reasonStr);
-    } else if (!isScreenOn && !othersOn) {
-        powerMgrNotify_->PublishScreenOffEvents(eventTime, reasonStr);
+    // 2. Whole-machine transition (edge-triggered on the aggregate "any screen on"): emit to U0 only on a
+    //    state flip. curAnyOn combines this display's new state (authoritative from the callback) with a
+    //    live query of the other displays; comparing against prevAnyScreenOn_ yields exactly one broadcast
+    //    per off->on / on->off regardless of how many screens change together or callback arrival order.
+    //    (Replaces the prior per-callback "this on && others off" predicate, which missed the broadcast
+    //    when multiple screens lit together and could duplicate when multiple turned off together.)
+    bool curAnyOn = isScreenOn || MultiUserScreenAdapter::IsAnyScreenOn(displayId);
+    if (curAnyOn && !prevAnyScreenOn_) {
+        powerMgrNotify_->PublishScreenOnEventsToU0(eventTime, reasonStr);
+    } else if (!curAnyOn && prevAnyScreenOn_) {
+        powerMgrNotify_->PublishScreenOffEventsToU0(eventTime, reasonStr);
     }
+    prevAnyScreenOn_ = curAnyOn;
 }
 #endif
 

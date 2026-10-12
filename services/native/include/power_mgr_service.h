@@ -444,6 +444,7 @@ private:
     // online and handle each per-display state change with per-user broadcast isolation.
     void RegisterMultiUserScreenCallback();
     void UnregisterMultiUserScreenCallback();
+    void InitMultiScreenNotify();
     void HandleMultiUserScreenChange(uint64_t displayId, bool isScreenOn, uint32_t reason);
 #endif
 #ifdef POWER_MANAGER_SCREEN_SAVER
@@ -461,6 +462,11 @@ private:
     // calling uid instead of IPCSkeleton::GetCallingUid(), so the multi-user branch can be driven without
     // relying on global IPC interposition. Defaults to -1 (resolve via IPCSkeleton) in production.
     int32_t screenQueryCallingUid_ {-1};
+    // Whole-machine screen-state baseline for edge-triggered SCREEN_ON/OFF broadcast to U0. Seeded at
+    // RegisterMultiUserScreenCallback (which also emits the initial baseline broadcast) and updated on
+    // each per-display state change; the broadcast is emitted only on an off<->on flip of the aggregate
+    // ("any screen on"), so simultaneous multi-screen changes yield exactly one broadcast per flip.
+    bool prevAnyScreenOn_ {false};
 #endif
     static std::atomic_bool foldScreenFlag_;
     ffrt::mutex wakeupMutex_;

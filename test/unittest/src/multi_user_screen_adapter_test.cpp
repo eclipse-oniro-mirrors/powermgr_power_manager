@@ -75,6 +75,7 @@ public:
 #ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
         MultiUserScreenAdapter::multiScreenCallback_ = nullptr;
         MultiUserScreenAdapter::SetScreenChangeHandler(nullptr);
+        g_pms->prevAnyScreenOn_ = false; // reset edge-triggered baseline
 #endif
     }
     void TearDown() override
@@ -112,8 +113,8 @@ HWTEST_F(MultiUserScreenAdapterTest, IsDisplayOn_StateBranches, TestSize.Level1)
     EXPECT_FALSE(MultiUserScreenAdapter::IsDisplayOn(0));
 }
 
-// ---- MultiUserScreenAdapter::IsAnyScreenOn (whole-machine query + fallback) ----
-HWTEST_F(MultiUserScreenAdapterTest, IsAnyScreenOn_AggregateAndFallback, TestSize.Level1)
+// ---- MultiUserScreenAdapter::IsAnyScreenOn (whole-machine aggregate over multi-screen set) ----
+HWTEST_F(MultiUserScreenAdapterTest, IsAnyScreenOn_AggregateMultiScreen, TestSize.Level1)
 {
     TestMock::MockDisplayGetStateRet() = DisplayErrors::ERR_OK;
     TestMock::MockDisplayIds() = {0, 1};
@@ -123,14 +124,11 @@ HWTEST_F(MultiUserScreenAdapterTest, IsAnyScreenOn_AggregateAndFallback, TestSiz
     EXPECT_TRUE(MultiUserScreenAdapter::IsAnyScreenOn());           // any on
     // exclude the only queried display that is on (display 0); display 1 still on -> true
     EXPECT_TRUE(MultiUserScreenAdapter::IsAnyScreenOn(0));
-    // both off, exclude display 0 -> no usable info among the rest -> still queried (id 1) -> false
+    // both off, exclude display 0 -> rest (id 1) off -> false
     TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
     EXPECT_FALSE(MultiUserScreenAdapter::IsAnyScreenOn(0));
-    // single-screen fallback: empty display ids -> main display state
+    // empty multi-screen set (no displays) -> false (no single-screen fallback)
     TestMock::MockDisplayIds() = {};
-    TestMock::MockMainDisplayState() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON;
-    EXPECT_TRUE(MultiUserScreenAdapter::IsAnyScreenOn());
-    TestMock::MockMainDisplayState() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
     EXPECT_FALSE(MultiUserScreenAdapter::IsAnyScreenOn());
 }
 
@@ -231,50 +229,146 @@ HWTEST_F(MultiUserScreenAdapterTest, IsScreenOn_MultiUserUser_PerDisplay, TestSi
     g_pms->screenQueryCallingUid_ = -1;
 }
 
-// ---- T4/T5: MultiScreenCallback::OnMultiScreenDisplayStateChanged (real callback entry) ----
-HWTEST_F(MultiUserScreenAdapterTest, OnMultiScreenDisplayStateChanged_PerUserAndWholeMachine, TestSize.Level1)
+// ---- Initial baseline broadcast: InitMultiScreenNotify replays each screen's current state ----
+HWTEST_F(MultiUserScreenAdapterTest, RegisterCallback_EmitsInitialBaselineBroadcast, TestSize.Level1)
 {
-    // Route the normalized event into the service handler (same wiring as OnAddSystemAbility).
-    g_pms->RegisterMultiUserScreenCallback();
     sptr<MultiUserScreenAdapter::MultiScreenCallback> cb = new MultiUserScreenAdapter::MultiScreenCallback();
     ASSERT_NE(cb, nullptr);
-
     TestMock::MockDisplayGetStateRet() = DisplayErrors::ERR_OK;
     TestMock::MockDisplayIds() = {0, 1};
+    TestMock::MockLocalIdRet() = static_cast<ErrCode>(-1); // skip per-user, assert whole-machine baseline
 
-    // T4: per-user broadcast only. display 0 -> userId 100; display 1 still on -> no whole-machine flip.
-    TestMock::MockLocalIdRet() = ERR_OK;
-    TestMock::MockLocalId() = 100;
+    // All screens off at register -> initial SCREEN_OFF to U0, baseline prev=false.
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
+    TestMock::ResetCommonEventMock();
+    g_pms->RegisterMultiUserScreenCallback();
+    g_pms->InitMultiScreenNotify();
+    EXPECT_EQ(TestMock::MockWholeMachineOffCount(), 1);
+    EXPECT_EQ(TestMock::MockWholeMachineOnCount(), 0);
+    EXPECT_EQ(TestMock::MockWholeMachineCallCount(), 1);
+
+    // Any screen on at register -> initial SCREEN_ON to U0, baseline prev=true.
     TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON;
     TestMock::ResetCommonEventMock();
+    g_pms->RegisterMultiUserScreenCallback();
+    g_pms->InitMultiScreenNotify();
+    EXPECT_EQ(TestMock::MockWholeMachineOnCount(), 1);
+    EXPECT_EQ(TestMock::MockWholeMachineOffCount(), 0);
+}
+
+// ---- Whole-machine edge-triggered transition + per-user routing ----
+HWTEST_F(MultiUserScreenAdapterTest, HandleMultiUserScreenChange_EdgeTriggeredAndPerUser, TestSize.Level1)
+{
+    sptr<MultiUserScreenAdapter::MultiScreenCallback> cb = new MultiUserScreenAdapter::MultiScreenCallback();
+    ASSERT_NE(cb, nullptr);
+    TestMock::MockDisplayGetStateRet() = DisplayErrors::ERR_OK;
+    TestMock::MockDisplayIds() = {0, 1};
+    TestMock::MockLocalIdRet() = ERR_OK;
+    TestMock::MockLocalId() = 100; // every display -> user 100
+
+    // Baseline all-off: initial SCREEN_OFF, prev=false. Clear the initial count before transitions.
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
+    g_pms->RegisterMultiUserScreenCallback();
+    g_pms->InitMultiScreenNotify();
+    TestMock::ResetCommonEventMock();
+
+    // off->on: display 0 ON (display 1 off) -> SCREEN_ON to U0 + per-user ON to user 100.
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
     cb->OnMultiScreenDisplayStateChanged(0, "scr0", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON,
         MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
+    EXPECT_EQ(TestMock::MockWholeMachineOnCount(), 1);
     EXPECT_EQ(TestMock::MockPublishAsUserOnCount(), 1);
     EXPECT_EQ(TestMock::MockPublishAsUserLastUserId(), 100);
-    EXPECT_EQ(TestMock::MockWholeMachineCallCount(), 0);
 
-    // T5a: whole-machine SCREEN_ON. all-off -> any-on, per-user resolution fails -> skip per-user.
-    TestMock::MockLocalIdRet() = static_cast<ErrCode>(-1);
-    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF; // other screens off
+    // on->on: display 1 ON (display 0 on) -> no whole-machine flip (no duplicate), per-user ON.
     TestMock::ResetCommonEventMock();
-    cb->OnMultiScreenDisplayStateChanged(0, "scr0", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON,
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON; // display 0 on
+    cb->OnMultiScreenDisplayStateChanged(1, "scr1", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON,
         MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
-    EXPECT_EQ(TestMock::MockPublishAsUserCallCount(), 0);
-    EXPECT_EQ(TestMock::MockWholeMachineOnCount(), 1);
+    EXPECT_EQ(TestMock::MockWholeMachineCallCount(), 0); // no duplicate SCREEN_ON
+    EXPECT_EQ(TestMock::MockPublishAsUserOnCount(), 1);
 
-    // T5b: whole-machine SCREEN_OFF. any-on -> all-off.
+    // partial off: display 0 OFF (display 1 still on) -> no whole-machine flip, per-user OFF.
     TestMock::ResetCommonEventMock();
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON; // display 1 on
     cb->OnMultiScreenDisplayStateChanged(0, "scr0", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF,
+        MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
+    EXPECT_EQ(TestMock::MockWholeMachineCallCount(), 0); // still on, no flip
+    EXPECT_EQ(TestMock::MockPublishAsUserOffCount(), 1);
+
+    // on->off: display 1 OFF (display 0 off) -> SCREEN_OFF to U0 + per-user OFF.
+    TestMock::ResetCommonEventMock();
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF; // display 0 off
+    cb->OnMultiScreenDisplayStateChanged(1, "scr1", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF,
         MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
     EXPECT_EQ(TestMock::MockWholeMachineOffCount(), 1);
+    EXPECT_EQ(TestMock::MockPublishAsUserOffCount(), 1);
+}
 
-    // Screen off but another screen on -> no broadcast at all.
-    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON; // display 1 on
+// ---- Bug fix: multi-screen simultaneous ON -> exactly one SCREEN_ON (was 0 with old predicate) ----
+HWTEST_F(MultiUserScreenAdapterTest, MultiScreenSimultaneousOn_ExactlyOneBroadcast, TestSize.Level1)
+{
+    sptr<MultiUserScreenAdapter::MultiScreenCallback> cb = new MultiUserScreenAdapter::MultiScreenCallback();
+    ASSERT_NE(cb, nullptr);
+    TestMock::MockDisplayGetStateRet() = DisplayErrors::ERR_OK;
+    TestMock::MockDisplayIds() = {0, 1};
+    TestMock::MockLocalIdRet() = static_cast<ErrCode>(-1); // skip per-user, focus on whole-machine
+
+    // Baseline all-off; both screens turn on together. MockDisplayStateValue=ON means each display's
+    // peer is queried as ON (both on after the simultaneous change).
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
+    g_pms->RegisterMultiUserScreenCallback(); // initial SCREEN_OFF, prev=false
+    g_pms->InitMultiScreenNotify();
     TestMock::ResetCommonEventMock();
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON;
+    cb->OnMultiScreenDisplayStateChanged(0, "scr0", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON,
+        MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
+    cb->OnMultiScreenDisplayStateChanged(1, "scr1", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON,
+        MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
+    EXPECT_EQ(TestMock::MockWholeMachineOnCount(), 1); // exactly one off->on, not two
+}
+
+// ---- Bug fix: multi-screen simultaneous OFF -> exactly one SCREEN_OFF (was 2 with old predicate) ----
+HWTEST_F(MultiUserScreenAdapterTest, MultiScreenSimultaneousOff_ExactlyOneBroadcast, TestSize.Level1)
+{
+    sptr<MultiUserScreenAdapter::MultiScreenCallback> cb = new MultiUserScreenAdapter::MultiScreenCallback();
+    ASSERT_NE(cb, nullptr);
+    TestMock::MockDisplayGetStateRet() = DisplayErrors::ERR_OK;
+    TestMock::MockDisplayIds() = {0, 1};
+    TestMock::MockLocalIdRet() = static_cast<ErrCode>(-1); // skip per-user, focus on whole-machine
+
+    // Baseline all-on; both screens turn off together. MockDisplayStateValue=OFF means each display's
+    // peer is queried as OFF (both off after the simultaneous change).
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON;
+    g_pms->RegisterMultiUserScreenCallback(); // initial SCREEN_ON, prev=true
+    g_pms->InitMultiScreenNotify();
+    TestMock::ResetCommonEventMock();
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
     cb->OnMultiScreenDisplayStateChanged(0, "scr0", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF,
         MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
-    EXPECT_EQ(TestMock::MockPublishAsUserCallCount(), 0);
-    EXPECT_EQ(TestMock::MockWholeMachineCallCount(), 0);
+    cb->OnMultiScreenDisplayStateChanged(1, "scr1", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF,
+        MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
+    EXPECT_EQ(TestMock::MockWholeMachineOffCount(), 1); // exactly one on->off, not two
+}
+
+// ---- Per-user resolution failure: skip per-user, whole-machine transition still fires ----
+HWTEST_F(MultiUserScreenAdapterTest, PerUserResolutionFailure_SkipsPerUserStillWholeMachine, TestSize.Level1)
+{
+    sptr<MultiUserScreenAdapter::MultiScreenCallback> cb = new MultiUserScreenAdapter::MultiScreenCallback();
+    ASSERT_NE(cb, nullptr);
+    TestMock::MockDisplayGetStateRet() = DisplayErrors::ERR_OK;
+    TestMock::MockDisplayIds() = {0, 1};
+    TestMock::MockLocalIdRet() = static_cast<ErrCode>(-1); // resolution fails
+
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
+    g_pms->RegisterMultiUserScreenCallback(); // initial SCREEN_OFF, prev=false
+    g_pms->InitMultiScreenNotify();
+    TestMock::ResetCommonEventMock();
+    TestMock::MockDisplayStateValue() = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_OFF;
+    cb->OnMultiScreenDisplayStateChanged(0, "scr0", OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON,
+        MultiScreenStateChangeReason::STATE_CHANGE_REASON_DEFAULT);
+    EXPECT_EQ(TestMock::MockPublishAsUserCallCount(), 0); // per-user skipped (resolution failed)
+    EXPECT_EQ(TestMock::MockWholeMachineOnCount(), 1);   // whole-machine off->on still fires
 }
 
 // ---- T7: PowerMgrService::OnAddSystemAbility register path (real entry, integration) ----

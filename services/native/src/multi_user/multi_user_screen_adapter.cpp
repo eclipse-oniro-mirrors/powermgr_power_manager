@@ -89,26 +89,20 @@ bool MultiUserScreenAdapter::IsDisplayOn(uint64_t displayId)
 
 bool MultiUserScreenAdapter::IsAnyScreenOn(uint64_t excludeDisplayId)
 {
+    // Whole-machine query over the multi-screen display set only. This feature is enabled solely on
+    // cockpit multi-display products, where GetDisplayIds is populated once the display SA is online,
+    // so there is no single-screen fallback path.
     auto& client = OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance();
-    std::vector<uint32_t> displayIds = client.GetDisplayIds();
-    bool queried = false;
-    for (uint32_t id : displayIds) {
+    for (uint32_t id : client.GetDisplayIds()) {
         uint64_t displayId = static_cast<uint64_t>(id);
         if (displayId == excludeDisplayId) {
             continue;
         }
-        queried = true;
         if (IsDisplayOn(displayId)) {
             return true;
         }
     }
-    if (queried) {
-        return false;
-    }
-    // No usable multi-screen info (single-screen device or display SA not ready): fall back to the
-    // main display state so the whole-machine query stays correct on non-cockpit products.
-    OHOS::DisplayPowerMgr::DisplayState mainState = client.GetDisplayState();
-    return IsDisplayOnState(mainState);
+    return false;
 }
 
 bool MultiUserScreenAdapter::IsScreenOnForUser(int32_t userId)
@@ -124,6 +118,23 @@ bool MultiUserScreenAdapter::IsScreenOnForUser(int32_t userId)
 void MultiUserScreenAdapter::SetScreenChangeHandler(ScreenChangeHandler handler)
 {
     screenChangeHandler_ = std::move(handler);
+}
+
+void MultiUserScreenAdapter::InitMultiScreenNotify(uint32_t reason)
+{
+    // Replay each multi-screen display's current state through the handler. Only multi-screen APIs are
+    // used: this feature is enabled solely on cockpit multi-display products, where GetDisplayIds is
+    // populated once the display SA is online (OnAddSystemAbility fires after it's added).
+    auto& client = OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance();
+    for (uint32_t id : client.GetDisplayIds()) {
+        uint64_t displayId = static_cast<uint64_t>(id);
+        bool isOn = IsDisplayOn(displayId);
+        POWER_HILOGI(COMP_SVC, "InitMultiScreenNotify displayId=%{public}" PRIu64 " on=%{public}d",
+            displayId, isOn);
+        if (screenChangeHandler_) {
+            screenChangeHandler_(displayId, isOn, reason);
+        }
+    }
 }
 
 bool MultiUserScreenAdapter::RegisterScreenStateCallback()

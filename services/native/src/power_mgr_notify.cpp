@@ -137,6 +137,37 @@ void PowerMgrNotify::PublishScreenOffEventsToUser(int64_t eventTime, const std::
     bool ret = CommonEventManager::PublishCommonEventAsUser(event, *publishInfo_, userId);
     POWER_HILOGI(FEATURE_SUSPEND, "PublishScreenOffEventsToUser userId=%{public}d ret=%{public}d", userId, ret);
 }
+
+void PowerMgrNotify::PublishScreenOnEventsToU0(int64_t eventTime, const std::string& reason)
+{
+    (void)eventTime;
+    if (screenOnWant_ == nullptr || publishInfo_ == nullptr) {
+        POWER_HILOGE(COMP_SVC, "PublishScreenOnEventsToU0: invalid parameter");
+        return;
+    }
+    screenOnWant_->SetParam("reason", reason);
+    CommonEventData event(*screenOnWant_);
+    // U0 = system user (userId 0). The whole-machine screen state is announced to the system user space
+    // so SA/U0 callers receive the aggregate ("any screen on") event while U10X users get their own
+    // per-display event via PublishScreenOnEventsToUser.
+    constexpr int32_t SYSTEM_USER_ID = 0;
+    bool ret = CommonEventManager::PublishCommonEventAsUser(event, *publishInfo_, SYSTEM_USER_ID);
+    POWER_HILOGI(FEATURE_WAKEUP, "PublishScreenOnEventsToU0 ret=%{public}d", ret);
+}
+
+void PowerMgrNotify::PublishScreenOffEventsToU0(int64_t eventTime, const std::string& reason)
+{
+    (void)eventTime;
+    if (screenOffWant_ == nullptr || publishInfo_ == nullptr) {
+        POWER_HILOGE(COMP_SVC, "PublishScreenOffEventsToU0: invalid parameter");
+        return;
+    }
+    screenOffWant_->SetParam("reason", reason);
+    CommonEventData event(*screenOffWant_);
+    constexpr int32_t SYSTEM_USER_ID = 0;
+    bool ret = CommonEventManager::PublishCommonEventAsUser(event, *publishInfo_, SYSTEM_USER_ID);
+    POWER_HILOGI(FEATURE_SUSPEND, "PublishScreenOffEventsToU0 ret=%{public}d", ret);
+}
 #endif
 
 #ifdef POWER_MANAGER_ENABLE_FORCE_SLEEP_BROADCAST
