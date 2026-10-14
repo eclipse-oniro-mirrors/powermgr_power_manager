@@ -121,6 +121,8 @@ static void UlsrParamChangeCallback(const char* key, const char* value, void* co
 #endif
 constexpr int32_t COLLABORATION_REMOTE_DEVICE_ID = 0xAAAAAAFF;
 constexpr int32_t INPUT_TASK_TIMEOUT = 50000;
+constexpr uint64_t VIRTUAL_SCREEN_RANGE_BEGIN_ID = 500;
+constexpr uint64_t VIRTUAL_SCREEN_RANGE_END_ID = 800;
 constexpr uint64_t VIRTUAL_SCREEN_START_ID = 1000;
 auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
 const bool G_REGISTER_RESULT = SystemAbility::MakeAndRegisterAbility(pms.GetRefPtr());
@@ -2778,7 +2780,8 @@ void PowerMgrService::ExternalScreenListener::OnDisconnect(uint64_t screenId)
         // fall back to the legacy ID-based check to avoid missing real external screen disconnects.
         POWER_HILOGW(COMP_SVC, "GetScreenInfoById fail, fall back to id check, screenId: %{public}u",
             static_cast<uint32_t>(screenId));
-        if (screenId >= VIRTUAL_SCREEN_START_ID) {
+        if ((screenId >= VIRTUAL_SCREEN_RANGE_BEGIN_ID && VIRTUAL_SCREEN_RANGE_END_ID <= 800) ||
+            (screenId >= VIRTUAL_SCREEN_START_ID)) {
             POWER_HILOGI(COMP_SVC, "Ignore virtual screen disconnecting event, screenId: %{public}u",
                 static_cast<uint32_t>(screenId));
             return;
