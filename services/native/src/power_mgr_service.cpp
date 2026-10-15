@@ -2788,7 +2788,7 @@ bool PowerMgrService::IsVirtualScreen(uint64_t screenId)
 
 void PowerMgrService::ExternalScreenListener::OnDisconnect(uint64_t screenId)
 {
-    if (IsVirtualScreen(screenId)) {
+    if (PowerMgrService::IsVirtualScreen(screenId)) {
         POWER_HILOGI(COMP_SVC, "Ignore virtual screen disconnecting event, screenId: %{public}u",
             static_cast<uint32_t>(screenId));
         return;
