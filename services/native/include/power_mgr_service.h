@@ -388,6 +388,7 @@ private:
 #endif
 
 #ifdef POWER_MANAGER_ENABLE_EXTERNAL_SCREEN_MANAGEMENT
+    static bool IsVirtualScreen(uint64_t screenId);
     class ExternalScreenListener : public Rosen::ScreenManagerLite::IScreenListener {
     public:
         virtual void OnConnect(uint64_t screenId) override;
