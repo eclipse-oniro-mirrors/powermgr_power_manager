@@ -2772,7 +2772,7 @@ void PowerMgrService::ExternalScreenListener::OnConnect(uint64_t screenId)
     }
 }
 
-void PowerMgrService::ExternalScreenListener::OnDisconnect(uint64_t screenId)
+bool PowerMgrService::IsVirtualScreen(uint64_t screenId)
 {
     auto screenInfo = Rosen::ScreenManagerLite::GetInstance().GetScreenInfoById(screenId);
     if (screenInfo == nullptr) {
@@ -2780,13 +2780,15 @@ void PowerMgrService::ExternalScreenListener::OnDisconnect(uint64_t screenId)
         // fall back to the legacy ID-based check to avoid missing real external screen disconnects.
         POWER_HILOGW(COMP_SVC, "GetScreenInfoById fail, fall back to id check, screenId: %{public}u",
             static_cast<uint32_t>(screenId));
-        if ((screenId >= CUSTOM_VIRTUAL_SCREEN_RANGE_BEGIN_ID && screenId <= CUSTOM_VIRTUAL_SCREEN_RANGE_END_ID) ||
-            (screenId >= VIRTUAL_SCREEN_START_ID)) {
-            POWER_HILOGI(COMP_SVC, "Ignore virtual screen disconnecting event, screenId: %{public}u",
-                static_cast<uint32_t>(screenId));
-            return;
-        }
-    } else if (screenInfo->GetScreenTypeInfo() == Rosen::ScreenTypeInfo::VIRTUAL) {
+        return (screenId >= CUSTOM_VIRTUAL_SCREEN_RANGE_BEGIN_ID && screenId <= CUSTOM_VIRTUAL_SCREEN_RANGE_END_ID) ||
+            (screenId >= VIRTUAL_SCREEN_START_ID);
+    }
+    return screenInfo->GetScreenTypeInfo() == Rosen::ScreenTypeInfo::VIRTUAL;
+}
+
+void PowerMgrService::ExternalScreenListener::OnDisconnect(uint64_t screenId)
+{
+    if (IsVirtualScreen(screenId)) {
         POWER_HILOGI(COMP_SVC, "Ignore virtual screen disconnecting event, screenId: %{public}u",
             static_cast<uint32_t>(screenId));
         return;
