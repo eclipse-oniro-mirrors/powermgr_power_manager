@@ -51,6 +51,10 @@
 #include "xcollie/watchdog.h"
 #include "errors.h"
 #include "parameters.h"
+#ifdef POWER_MANAGER_LOCK_SUPPORT_MULTI_SCREEN
+#include "os_account_constants.h"
+#include "os_account_manager.h"
+#endif
 #ifdef POWER_LID_FOLD_ENABLE
 #include "display_manager_lite.h"
 #endif
@@ -1682,8 +1686,46 @@ RunningLockParam PowerMgrService::FillRunningLockParam(
     filledParam.uid = IPCSkeleton::GetCallingUid();
     filledParam.bundleName = GetBundleNameByUid(filledParam.uid);
     filledParam.displayId = info.displayId;
+#ifdef POWER_MANAGER_LOCK_SUPPORT_MULTI_SCREEN
+    FillDisplayIdForMultiScreen(filledParam);
+#endif
     return filledParam;
 }
+
+#ifdef POWER_MANAGER_LOCK_SUPPORT_MULTI_SCREEN
+void PowerMgrService::FillDisplayIdForMultiScreen(RunningLockParam& filledParam)
+{
+    if (filledParam.type != RunningLockType::RUNNINGLOCK_SCREEN) {
+        return;
+    }
+    if (filledParam.displayId != RUNNINGLOCK_DISPLAY_ID_ALL) {
+        return;
+    }
+    int32_t userId = 0;
+    AccountSA::OsAccountManager::GetOsAccountLocalIdFromUid(filledParam.uid, userId);
+    if (userId != 0 && userId < AccountSA::Constants::START_USER_ID) {
+        POWER_HILOGW(FEATURE_RUNNING_LOCK,
+            "Skip auto-bind, userId=%{public}d, uid=%{public}d", userId, filledParam.uid);
+        return;
+    }
+    int32_t queryUserId = userId;
+    if (userId == 0) {
+        queryUserId = AccountSA::Constants::START_USER_ID;
+    }
+    uint64_t displayId = 0;
+    ErrCode err = AccountSA::OsAccountManager::GetForegroundOsAccountDisplayId(queryUserId, displayId);
+    if (err != ERR_OK) {
+        POWER_HILOGW(FEATURE_RUNNING_LOCK,
+            "Auto-bind fail N=%{public}s, userId=%{public}d, uid=%{public}d, keep ALL",
+            filledParam.name.c_str(), userId, filledParam.uid);
+        return;
+    }
+    filledParam.displayId = displayId;
+    POWER_HILOGI(FEATURE_RUNNING_LOCK,
+        "Auto-bind D=%{public}" PRIu64 " N=%{public}s, userId=%{public}d, uid=%{public}d",
+        displayId, filledParam.name.c_str(), userId, filledParam.uid);
+}
+#endif
 
 PowerErrors PowerMgrService::CreateRunningLock(
     const sptr<IRemoteObject>& remoteObj, const RunningLockInfo& runningLockInfo)

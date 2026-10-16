@@ -316,6 +316,10 @@ ohos_shared_library("powermgrservice") {
     ]
   }
 
+  if (power_manager_feature_lock_screen_support_multi_screen) {
+    external_deps += [ "os_account:os_account_innerkits" ]
+  }
+
   subsystem_name = "powermgr"
   part_name = "${powermgr_part_name}"
 }
