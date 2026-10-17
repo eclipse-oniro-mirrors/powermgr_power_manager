@@ -2808,4 +2808,62 @@ HWTEST_F(RunningLockNativeTest, RunningLockNative083, TestSize.Level1)
 }
 #endif
 #endif
+
+#ifdef POWER_MANAGER_LOCK_SUPPORT_MULTI_SCREEN
+/**
+ * @tc.name: RunningLockNative084
+ * @tc.desc: test FillDisplayIdForMultiScreen with U10X app (uid in user 100)
+ * @tc.type: FUNC
+ */
+HWTEST_F(RunningLockNativeTest, RunningLockNative084, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RunningLockNative084 function start!");
+    auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_NE(pms, nullptr);
+    constexpr int32_t U10X_UID = 100 * 200000 + 1;
+    RunningLockParam param {0, "U10XScreenLock", "bundle.test",
+        RunningLockType::RUNNINGLOCK_SCREEN, -1, 1, U10X_UID, RUNNINGLOCK_DISPLAY_ID_ALL};
+    pms->FillDisplayIdForMultiScreen(param);
+    EXPECT_EQ(param.uid, U10X_UID);
+    EXPECT_NE(param.displayId, RUNNINGLOCK_DISPLAY_ID_ALL);
+    POWER_HILOGI(LABEL_TEST, "RunningLockNative084 function end!");
+}
+
+/**
+ * @tc.name: RunningLockNative085
+ * @tc.desc: test FillDisplayIdForMultiScreen binds U0 to default display
+ * @tc.type: FUNC
+ */
+HWTEST_F(RunningLockNativeTest, RunningLockNative085, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RunningLockNative085 function start!");
+    auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_NE(pms, nullptr);
+    constexpr int32_t U0_UID = 1000;
+    RunningLockParam param {0, "U0ScreenLock", "bundle.test",
+        RunningLockType::RUNNINGLOCK_SCREEN, -1, 1, U0_UID, RUNNINGLOCK_DISPLAY_ID_ALL};
+    pms->FillDisplayIdForMultiScreen(param);
+    EXPECT_NE(param.displayId, RUNNINGLOCK_DISPLAY_ID_ALL);
+    POWER_HILOGI(LABEL_TEST, "RunningLockNative085 function end!");
+}
+
+/**
+ * @tc.name: RunningLockNative086
+ * @tc.desc: test FillDisplayIdForMultiScreen respects explicitly set displayId
+ * @tc.type: FUNC
+ */
+HWTEST_F(RunningLockNativeTest, RunningLockNative086, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RunningLockNative086 function start!");
+    auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_NE(pms, nullptr);
+    constexpr int32_t U10X_UID = 100 * 200000 + 1;
+    constexpr uint64_t EXPLICIT_DISPLAY_ID = 555;
+    RunningLockParam param {0, "U10XExplicitLock", "bundle.test",
+        RunningLockType::RUNNINGLOCK_SCREEN, -1, 1, U10X_UID, EXPLICIT_DISPLAY_ID};
+    pms->FillDisplayIdForMultiScreen(param);
+    EXPECT_EQ(param.displayId, EXPLICIT_DISPLAY_ID);
+    POWER_HILOGI(LABEL_TEST, "RunningLockNative086 function end!");
+}
+#endif
 } // namespace

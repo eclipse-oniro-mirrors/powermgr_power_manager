@@ -428,6 +428,9 @@ private:
     void OnAddSystemAbilityInner(int32_t systemAbilityId, const std::string& deviceId);
     std::string GetBundleNameByUid(const int32_t uid);
     RunningLockParam FillRunningLockParam(const RunningLockInfo& info, const uint64_t lockid, int32_t timeOutMS = -1);
+#ifdef POWER_MANAGER_LOCK_SUPPORT_MULTI_SCREEN
+    void FillDisplayIdForMultiScreen(RunningLockParam& filledParam);
+#endif
     void SubscribeCommonEvent();
 #ifdef MSDP_MOVEMENT_ENABLE
     void RegisterMovementCallback();
