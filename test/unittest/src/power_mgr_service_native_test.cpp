@@ -899,6 +899,42 @@ HWTEST_F(PowerMgrServiceNativeTest, ScreenOffBlockService004, TestSize.Level1) {
     POWER_HILOGI(LABEL_TEST, "ScreenOffBlockService004 end!");
 }
 
+/**
+ * @tc.name: ScreenOffBlockService005
+ * @tc.desc: Register a screen-off block via SetInterfaceCallFilteringStrategy,
+ *           then call ForceSuspendDevice and assert it returns
+ *           ERR_SCREEN_OFF_BLOCKED. After cancelling the block ForceSuspendDevice resumes.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(PowerMgrServiceNativeTest, ScreenOffBlockService005, TestSize.Level1) {
+    POWER_HILOGI(LABEL_TEST, "ScreenOffBlockService005 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    g_isSystem = true;
+    g_isPermissionGranted = true;
+    sptr<IRemoteObject> token = sptr<IPCObjectProxy>::MakeSptr(0, u"ScreenOffBlockService005");
+    auto stateMachine = pmsTest->GetPowerStateMachine();
+    ASSERT_TRUE(stateMachine != nullptr);
+    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(
+        PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
+    // Register the block
+    EXPECT_EQ(pmsTest->SetInterfaceCallFilteringStrategy(
+        InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING, token),
+        PowerErrors::ERR_OK);
+    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(
+        PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
+    // ForceSuspendDevice must return ERR_SCREEN_OFF_BLOCKED
+    PowerErrors ret = pmsTest->ForceSuspendDevice(CALLTIMEMS);
+    EXPECT_EQ(ret, PowerErrors::ERR_SCREEN_OFF_BLOCKED);
+    // Cancel the block; ForceSuspendDevice is no longer blocked
+    EXPECT_EQ(pmsTest->SetInterfaceCallFilteringStrategy(
+        InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING, token),
+        PowerErrors::ERR_OK);
+    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(
+        PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
+    POWER_HILOGI(LABEL_TEST, "ScreenOffBlockService005 end!");
+}
+
 #ifdef POWER_MANAGER_ENABLE_MONITOR_RUNNING_LOCK_CHANGE
 /**
  * @tc.name: PowerMgrServiceNative025

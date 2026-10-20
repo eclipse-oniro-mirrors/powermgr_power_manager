@@ -1603,6 +1603,11 @@ PowerErrors PowerMgrService::ForceSuspendDevice(int64_t callTimeMs)
         POWER_HILOGI(FEATURE_SUSPEND, "System is shutting down, can't force suspend");
         return PowerErrors::ERR_FAILURE;
     }
+    if (powerStateMachine_->IsScreenOffBlocked(
+        PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE)) {
+        POWER_HILOGI(FEATURE_SUSPEND, "ForceSuspendDevice blocked by screen-off block strategy");
+        return PowerErrors::ERR_SCREEN_OFF_BLOCKED;
+    }
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
     powerStateMachine_->ReportSuspendStart(
         uid, static_cast<int32_t>(SuspendDeviceType::SUSPEND_DEVICE_REASON_APPLICATION), true);
@@ -3423,7 +3428,7 @@ PowerErrors PowerMgrService::SetInterfaceCallFilteringStrategy(
         }
         stateMachine->RemoveScreenOffBlock(
             PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE);
-        POWER_HILOGI(COMP_SVC, "RemoveScreenOffBlock INTERFACE_CALL on SA death");
+        POWER_HILOGI(COMP_SVC, "RemoveScreenOffBlock SUSPEND_DEVICE_INTERFACE on SA death");
     };
     if (strategy == InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING) {
         powerStateMachine_->UpdateScreenOffBlock(
