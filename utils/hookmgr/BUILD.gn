@@ -35,6 +35,8 @@ ohos_shared_library("power_hookmgr") {
     "${powermgr_utils_path}:coverage_flags",
   ]
 
+  version_script = "libpower_hookmgr.map"
+
   public_configs = [ ":public_config" ]
 
   external_deps = [

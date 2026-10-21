@@ -37,6 +37,8 @@ ohos_shared_library("power_vibrator") {
     "src/vibrator_source_parser.cpp",
   ]
 
+  version_script = "libpower_vibrator.map"
+
   configs = [ ":private_config" ]
 
   public_configs = [ ":public_config" ]

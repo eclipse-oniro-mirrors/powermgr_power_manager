@@ -1,0 +1,40 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{
+  global:
+    __emutls_get_address;
+
+    /* Precise mangled name: demangled wildcard CancelTimer* would also
+       match CancelTimerInner (private method) */
+    _ZN4OHOS8PowerMgr9FFRTTimer11CancelTimerEj;
+    _ZN4OHOS8PowerMgr9FFRTTimer14CancelAllTimerEv;
+
+    extern "C++" {
+      OHOS::PowerMgr::FFRTMutexMap::Lock*;
+      OHOS::PowerMgr::FFRTMutexMap::Unlock*;
+      OHOS::PowerMgr::FFRTTimer::FFRTTimer*;
+      OHOS::PowerMgr::FFRTTimer::~FFRTTimer*;
+      OHOS::PowerMgr::FFRTTimer::SetTimer*;
+      OHOS::PowerMgr::FFRTTimer::GetTaskHandlePtr*;
+      OHOS::PowerMgr::FFRTTimer::Clear*;
+      OHOS::PowerMgr::FFRTTimer::GetTaskId*;
+      OHOS::PowerMgr::FFRTUtils::SubmitTask*;
+      OHOS::PowerMgr::FFRTUtils::SubmitTimeoutTask*;
+      OHOS::PowerMgr::FFRTUtils::SubmitQueueTasks*;
+      OHOS::PowerMgr::FFRTUtils::SubmitDelayTask*;
+      OHOS::PowerMgr::FFRTUtils::CancelTask*;
+    };
+  local:
+    *;
+};

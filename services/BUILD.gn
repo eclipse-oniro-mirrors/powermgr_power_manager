@@ -53,6 +53,7 @@ ohos_shared_library("powermgrservice") {
     debug = false
   }
   branch_protector_ret = "pac_ret"
+  version_script = "libpowermgrservice.map"
 
   sources = [
     "native/src/death_recipient_manager.cpp",

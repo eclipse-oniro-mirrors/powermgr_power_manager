@@ -61,6 +61,8 @@ taihe_shared_library("power_manager_taihe_native") {
     external_deps += [ "ability_runtime:app_manager" ]
   }
 
+  version_script = "libpower_manager_taihe_native.map"
+
   subsystem_name = "powermgr"
   part_name = "${powermgr_part_name}"
 }

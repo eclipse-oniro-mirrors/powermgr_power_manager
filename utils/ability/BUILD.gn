@@ -34,6 +34,8 @@ ohos_shared_library("power_ability") {
 
   deps = [ "${powermgr_utils_path}/appmgr:power_appmgr" ]
 
+  version_script = "libpower_ability.map"
+
   external_deps = [
     "ability_runtime:ability_manager",
     "c_utils:utils",
