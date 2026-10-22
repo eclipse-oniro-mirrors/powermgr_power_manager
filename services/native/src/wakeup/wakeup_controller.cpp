@@ -15,6 +15,7 @@
 
 #include "wakeup_controller.h"
 
+#include <atomic>
 #include <datetime_ex.h>
 #ifdef POWER_MANAGER_ENABLE_EXTERNAL_SCREEN_MANAGEMENT
 #include <display_manager_lite.h>
@@ -51,6 +52,8 @@ sptr<SettingObserver> g_wakeupSourcesKeyObserver = nullptr;
 const int32_t ERR_FAILED = -1;
 #endif
 constexpr int32_t EVENT_INTERVAL_MS = 1000;
+constexpr int64_t INPUT_EVENT_LOG_INTERVAL_MS = 10000;
+std::atomic<int64_t> g_lastInputLogTime = 0;
 constexpr int32_t WAKEUP_LOCK_TIMEOUT_MS = 5000;
 constexpr int32_t COLLABORATION_REMOTE_DEVICE_ID = 0xAAAAAAFF;
 constexpr int32_t OTHER_SYSTEM_DEVICE_ID = 0xAAAAAAFE;
@@ -660,6 +663,17 @@ void WakeupController::ControlListener(WakeupDeviceType reason)
 }
 
 #ifdef HAS_MULTIMODALINPUT_INPUT_PART
+void LogInputEventReceived(const char* eventType, int32_t action)
+{
+    int64_t tickNow = GetTickCount();
+    int64_t lastTime = g_lastInputLogTime.load(std::memory_order_relaxed);
+    if (tickNow - lastTime >= INPUT_EVENT_LOG_INTERVAL_MS) {
+        g_lastInputLogTime.store(tickNow, std::memory_order_relaxed);
+        POWER_HILOGI(FEATURE_WAKEUP, "input %{public}s event received, action = %{public}d",
+            eventType, action);
+    }
+}
+
 /* InputCallback achieve */
 bool InputCallback::isRemoteEvent(std::shared_ptr<InputEvent> event) const
 {
@@ -694,7 +708,7 @@ void InputCallback::OnInputEvent(std::shared_ptr<KeyEvent> keyEvent) const
         POWER_HILOGE(FEATURE_WAKEUP, "keyEvent is null");
         return;
     }
-    POWER_HILOGD(FEATURE_WAKEUP, "input keyEvent event received, action = %{public}d", keyEvent->GetAction());
+    LogInputEventReceived("keyEvent", keyEvent->GetAction());
     auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
     if (pms == nullptr) {
         POWER_HILOGE(FEATURE_WAKEUP, "get powerMgrService instance error");
@@ -809,7 +823,7 @@ void InputCallback::OnInputEvent(std::shared_ptr<PointerEvent> pointerEvent) con
         POWER_HILOGE(FEATURE_WAKEUP, "pointerEvent is null");
         return;
     }
-    POWER_HILOGD(FEATURE_WAKEUP, "input pointer event received, action = %{public}d", pointerEvent->GetPointerAction());
+    LogInputEventReceived("pointer", pointerEvent->GetPointerAction());
     auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
     if (pms == nullptr) {
         return;
@@ -873,7 +887,7 @@ void InputCallback::OnInputEvent(std::shared_ptr<AxisEvent> axisEvent) const
         POWER_HILOGE(FEATURE_WAKEUP, "axisEvent is null");
         return;
     }
-    POWER_HILOGD(FEATURE_WAKEUP, "input axisEvent event received, action = %{public}d", axisEvent->GetAction());
+    LogInputEventReceived("axisEvent", axisEvent->GetAction());
     auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
     if (pms == nullptr) {
         return;
