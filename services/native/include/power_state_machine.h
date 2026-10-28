@@ -472,6 +472,7 @@ private:
 #endif
     void StartSleepTimer(PowerState from);
 #ifdef POWER_MANAGER_REPORT_SCREENOFF_INVALID
+    std::string GetBundleNameFromLock(const RunningLockInfo& lockInfo);
     bool ReportScreenOffInvalidEvent(StateChangeReason reason);
     bool ReportAbnormalScreenOffEvent(StateChangeReason reason);
 #endif
