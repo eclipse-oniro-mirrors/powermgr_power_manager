@@ -21,6 +21,7 @@
 #ifdef HAS_DISPLAY_MANAGER
 #include "display_power_mgr_client.h"
 #endif
+#include "parameters.h"
 #include "power_log.h"
 #include "power_mode_policy.h"
 #include "power_mgr_service.h"
@@ -40,6 +41,7 @@ sptr<SettingObserver> g_autoAdjustBrightnessObserver;
 sptr<SettingObserver> g_autoWindowRotationObserver;
 sptr<SettingObserver> g_vibratorsStateObserver;
 sptr<SettingObserver> g_intellVoiceObserver;
+constexpr const char* DISALLOWED_BATTERY_SAVER_KEY = "persist.edm.disallowed_battery_saver";
 }
 
 PowerModeModule::PowerModeModule()
@@ -180,6 +182,18 @@ PowerMode PowerModeModule::GetModeItem()
     POWER_HILOGD(FEATURE_POWER_MODE, "GetModeItem mode_: %{public}u", mode_);
     /* get power mode */
     return mode_;
+}
+
+bool PowerModeModule::IsPowerSaveModeDisabled(PowerMode mode)
+{
+    switch (mode) {
+        case PowerMode::POWER_SAVE_MODE:
+        case PowerMode::EXTREME_POWER_SAVE_MODE:
+        case PowerMode::CUSTOM_POWER_SAVE_MODE:
+            return OHOS::system::GetBoolParameter(DISALLOWED_BATTERY_SAVER_KEY, false);
+        default:
+            return false;
+    }
 }
 
 void PowerModeModule::UnregisterSaveModeObserver()

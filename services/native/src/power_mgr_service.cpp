@@ -2404,6 +2404,11 @@ PowerErrors PowerMgrService::SetDeviceMode(const PowerMode& mode)
     if (!Permission::IsPermissionGranted("ohos.permission.POWER_OPTIMIZATION")) {
         return PowerErrors::ERR_PERMISSION_DENIED;
     }
+    if (PowerModeModule::IsPowerSaveModeDisabled(mode)) {
+        POWER_HILOGE(FEATURE_POWER_MODE,
+            "The power save mode %{public}u is disabled by the enterprise policy", mode);
+        return PowerErrors::ERR_ENTERPRISE_POLICIES_DENIED;
+    }
     return powerModeModule_.SetModeItem(mode);
 }
 
