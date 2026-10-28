@@ -19,6 +19,7 @@
 #include <thread>
 #include <algorithm>
 #include <cinttypes>
+#include <regex>
 #include <datetime_ex.h>
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
 #include <hisysevent.h>
@@ -2919,10 +2920,16 @@ bool PowerStateMachine::ReportScreenOffInvalidEvent(StateChangeReason reason)
                 return;
             }
             pms->QueryRunningLockListsInner(screenOnLockLists);
+            static const std::regex windowLockPattern("^(.+)_windowLock_\\d+_\\d+$");
             for (const auto &it : screenOnLockLists) {
+                std::string bundleName = it.second.bundleName;
+                std::smatch matchResult;
+                if (std::regex_match(it.second.name, matchResult, windowLockPattern)) {
+                    bundleName = matchResult[1].str();
+                }
                 HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "SCREEN_OFF_EXCEPTION",
                     HiviewDFX::HiSysEvent::EventType::FAULT, "EXCEPTION_TYPE", SCREEN_OFF_INVALID,
-                    "PID", it.second.pid, "UID", it.second.uid, "BUNDLE_NAME", it.second.bundleName.c_str(),
+                    "PID", it.second.pid, "UID", it.second.uid, "BUNDLE_NAME", bundleName.c_str(),
                     "ABILITY_NAME", "", "WINDOW_ID", 0, "APP_BEHAVIOR", "");
             }
         }
