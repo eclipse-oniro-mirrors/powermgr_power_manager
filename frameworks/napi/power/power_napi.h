@@ -24,6 +24,11 @@
 #include "async_callback_info.h"
 namespace OHOS {
 namespace PowerMgr {
+enum class InvokeMode : int32_t {
+    SYNC = 0,
+    ASYNC = 1,
+};
+
 class PowerShutdownCallback : public AsyncShutdownCallbackStub {
 public:
     PowerShutdownCallback() = default;
@@ -63,6 +68,7 @@ public:
 
 private:
     static napi_value RebootOrShutdown(napi_env env, napi_callback_info info, bool isReboot);
+    static void SettlePromise(napi_env env, napi_status status, void* data);
     static napi_value SetPowerModeCallback(
         napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo);
     static napi_value SetPowerModePromise(
@@ -71,6 +77,10 @@ private:
         napi_env& env, std::unique_ptr<AsyncCallbackInfo>& asyncInfo);
     static void AsyncWork(napi_env& env, std::unique_ptr<AsyncCallbackInfo>& asyncInfo, const std::string& resourceName,
         napi_async_execute_callback execute, napi_async_complete_callback complete);
+    static napi_value WakeupAsync(napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo);
+    static napi_value SuspendAsync(napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo);
+    static napi_value RebootOrShutdownAsync(
+        napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo, bool isReboot);
 };
 } // namespace PowerMgr
 } // namespace OHOS

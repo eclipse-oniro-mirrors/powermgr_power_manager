@@ -33,14 +33,14 @@
 namespace OHOS {
 namespace PowerMgr {
 namespace {
-constexpr uint32_t REBOOT_SHUTDOWN_MAX_ARGC = 1;
-constexpr uint32_t WAKEUP_MAX_ARGC = 1;
+constexpr uint32_t REBOOT_SHUTDOWN_MAX_ARGC = 2;
+constexpr uint32_t WAKEUP_MAX_ARGC = 2;
 constexpr uint32_t SET_MODE_CALLBACK_MAX_ARGC = 2;
 constexpr uint32_t SET_MODE_PROMISE_MAX_ARGC = 1;
 constexpr uint32_t SET_MODE_SUBMODE_ARGC = 2;
 constexpr uint32_t SET_MODE_SUB_MAX_ARGC = 2;
 constexpr uint32_t SET_MODE_SUB_MIN_ARGC = 2;
-constexpr uint32_t SUSPEND_MAX_ARGC = 1;
+constexpr uint32_t SUSPEND_MAX_ARGC = 2;
 constexpr uint32_t SET_SCREEN_OFFTIME_ARGC = 1;
 constexpr uint32_t HIBERNATE_ARGC = 1;
 constexpr uint32_t REFRESH_ACTIVITY_ARGC = 1;
@@ -52,6 +52,26 @@ constexpr int32_t RESTORE_DEFAULT_SCREENOFF_TIME = -1;
 constexpr int32_t SHUTDOWN_CALLBACK_TIMEOUT = 5000;
 static PowerMgrClient& g_powerMgrClient = PowerMgrClient::GetInstance();
 thread_local sptr<PowerShutdownCallback> g_powerShutdownCallback = new (std::nothrow) PowerShutdownCallback();
+
+enum class InvokeModeAction {
+    ASYNC,
+    SYNC,
+    INVALID,
+};
+
+static InvokeModeAction ParseInvokeMode(napi_env env, napi_value value)
+{
+    uint32_t invokeMode = 0;
+    if (!NapiUtils::CheckValueType(env, value, napi_number) ||
+        napi_get_value_uint32(env, value, &invokeMode) != napi_ok) {
+        return InvokeModeAction::INVALID;
+    }
+    if (invokeMode == static_cast<uint32_t>(InvokeMode::ASYNC)) {
+        return InvokeModeAction::ASYNC;
+    }
+    return invokeMode == static_cast<uint32_t>(InvokeMode::SYNC) ?
+        InvokeModeAction::SYNC : InvokeModeAction::INVALID;
+}
 #ifdef POWER_API_METRICS_ENABLE
 constexpr int32_t HISTOGRAM_API_CALL_COUNT = 1;
 #endif
@@ -173,8 +193,21 @@ napi_value PowerNapi::Wakeup(napi_env env, napi_callback_info info)
     NapiUtils::GetCallbackInfo(env, info, argc, argv);
 
     NapiErrors error;
-    if (argc != WAKEUP_MAX_ARGC || !NapiUtils::CheckValueType(env, argv[INDEX_0], napi_string)) {
+    if (argc < 1 || argc > WAKEUP_MAX_ARGC ||
+        !NapiUtils::CheckValueType(env, argv[INDEX_0], napi_string)) {
         return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+    }
+
+    if (argc == WAKEUP_MAX_ARGC) {
+        InvokeModeAction action = ParseInvokeMode(env, argv[INDEX_1]);
+        if (action == InvokeModeAction::ASYNC) {
+            std::unique_ptr<AsyncCallbackInfo> asyncInfo = std::make_unique<AsyncCallbackInfo>();
+            RETURN_IF_WITH_RET(asyncInfo == nullptr, nullptr);
+            return WakeupAsync(env, argv, asyncInfo);
+        }
+        if (action == InvokeModeAction::INVALID) {
+            return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+        }
     }
 
     std::string detail = NapiUtils::GetStringFromNapi(env, argv[INDEX_0]);
@@ -194,7 +227,10 @@ napi_value PowerNapi::Suspend(napi_env env, napi_callback_info info)
     NapiUtils::GetCallbackInfo(env, info, argc, argv);
 
     NapiErrors error;
-    if (argc != SUSPEND_MAX_ARGC || !NapiUtils::CheckValueType(env, argv[INDEX_0], napi_boolean)) {
+    if (argc > SUSPEND_MAX_ARGC) {
+        return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+    }
+    if (argc >= 1 && !NapiUtils::CheckValueType(env, argv[INDEX_0], napi_boolean)) {
         if (!NapiUtils::CheckValueType(env, argv[INDEX_0], napi_undefined)) {
             std::string detail = NapiUtils::GetStringFromNapi(env, argv[INDEX_0]);
             if (!detail.empty()) {
@@ -204,7 +240,22 @@ napi_value PowerNapi::Suspend(napi_env env, napi_callback_info info)
     }
 
     bool isForce = false;
-    napi_get_value_bool(env, argv[0], &isForce);
+    if (argc >= 1) {
+        napi_get_value_bool(env, argv[0], &isForce);
+    }
+
+    if (argc == SUSPEND_MAX_ARGC) {
+        InvokeModeAction action = ParseInvokeMode(env, argv[INDEX_1]);
+        if (action == InvokeModeAction::ASYNC) {
+            std::unique_ptr<AsyncCallbackInfo> asyncInfo = std::make_unique<AsyncCallbackInfo>();
+            RETURN_IF_WITH_RET(asyncInfo == nullptr, nullptr);
+            asyncInfo->GetData().SetIsImmediate(isForce);
+            return SuspendAsync(env, argv, asyncInfo);
+        }
+        if (action == InvokeModeAction::INVALID) {
+            return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+        }
+    }
 
     PowerErrors code;
     if (isForce) {
@@ -409,8 +460,21 @@ napi_value PowerNapi::RebootOrShutdown(napi_env env, napi_callback_info info, bo
     NapiUtils::GetCallbackInfo(env, info, argc, argv);
 
     NapiErrors error;
-    if (argc != REBOOT_SHUTDOWN_MAX_ARGC || !NapiUtils::CheckValueType(env, argv[INDEX_0], napi_string)) {
+    if (argc < 1 || argc > REBOOT_SHUTDOWN_MAX_ARGC ||
+        !NapiUtils::CheckValueType(env, argv[INDEX_0], napi_string)) {
         return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+    }
+
+    if (argc == REBOOT_SHUTDOWN_MAX_ARGC) {
+        InvokeModeAction action = ParseInvokeMode(env, argv[INDEX_1]);
+        if (action == InvokeModeAction::ASYNC) {
+            std::unique_ptr<AsyncCallbackInfo> asyncInfo = std::make_unique<AsyncCallbackInfo>();
+            RETURN_IF_WITH_RET(asyncInfo == nullptr, nullptr);
+            return RebootOrShutdownAsync(env, argv, asyncInfo, isReboot);
+        }
+        if (action == InvokeModeAction::INVALID) {
+            return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+        }
     }
 
     std::string reason = NapiUtils::GetStringFromNapi(env, argv[INDEX_0]);
@@ -538,6 +602,105 @@ void PowerNapi::AsyncWork(napi_env& env, std::unique_ptr<AsyncCallbackInfo>& asy
         reinterpret_cast<void*>(asyncInfo.get()), &(asyncInfo->GetAsyncWork()));
     NAPI_CALL_RETURN_VOID(env, napi_queue_async_work_with_qos(env, asyncInfo->GetAsyncWork(), napi_qos_utility));
     asyncInfo.release();
+}
+
+void PowerNapi::SettlePromise(napi_env env, napi_status status, void* data)
+{
+    AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
+    RETURN_IF(asyncInfo == nullptr);
+    if (status != napi_ok) {
+        napi_value msg = nullptr;
+        napi_value err = nullptr;
+        napi_create_string_utf8(env, "async work cancelled", NAPI_AUTO_LENGTH, &msg);
+        napi_create_error(env, nullptr, msg, &err);
+        napi_reject_deferred(env, asyncInfo->GetDeferred(), err);
+    } else if (asyncInfo->GetError().IsError()) {
+        napi_reject_deferred(env, asyncInfo->GetDeferred(), asyncInfo->GetError().GetNapiError(env));
+    } else {
+        napi_value undefined;
+        napi_get_undefined(env, &undefined);
+        napi_resolve_deferred(env, asyncInfo->GetDeferred(), undefined);
+    }
+    asyncInfo->Release(env);
+    delete asyncInfo;
+}
+
+napi_value PowerNapi::WakeupAsync(napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo)
+{
+    asyncInfo->GetData().SetReason(NapiUtils::GetStringFromNapi(env, argv[INDEX_0]));
+    POWER_HILOGD(FEATURE_WAKEUP, "WakeupAsync type: APPLICATION, reason: %{public}s",
+        asyncInfo->GetData().GetReason().c_str());
+
+    napi_value promise;
+    asyncInfo->CreatePromise(env, promise);
+    RETURN_IF_WITH_RET(promise == nullptr, nullptr);
+
+    AsyncWork(
+        env, asyncInfo, "WakeupAsync",
+        [](napi_env env, void* data) {
+            AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
+            RETURN_IF(asyncInfo == nullptr);
+            PowerErrors error = g_powerMgrClient.WakeupDevice(
+                WakeupDeviceType::WAKEUP_DEVICE_APPLICATION, asyncInfo->GetData().GetReason());
+            asyncInfo->GetError().Error(error);
+        },
+        SettlePromise);
+    return promise;
+}
+
+napi_value PowerNapi::SuspendAsync(napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo)
+{
+    napi_value promise;
+    asyncInfo->CreatePromise(env, promise);
+    RETURN_IF_WITH_RET(promise == nullptr, nullptr);
+
+    AsyncWork(
+        env, asyncInfo, "SuspendAsync",
+        [](napi_env env, void* data) {
+            AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
+            RETURN_IF(asyncInfo == nullptr);
+            PowerErrors error;
+            if (asyncInfo->GetData().GetIsImmediate()) {
+                error = g_powerMgrClient.ForceSuspendDevice();
+            } else {
+                error = g_powerMgrClient.SuspendDevice(
+                    SuspendDeviceType::SUSPEND_DEVICE_REASON_APPLICATION, false);
+            }
+            asyncInfo->GetError().Error(error);
+        },
+        SettlePromise);
+    return promise;
+}
+
+napi_value PowerNapi::RebootOrShutdownAsync(
+    napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo, bool isReboot)
+{
+    asyncInfo->GetData().SetReason(NapiUtils::GetStringFromNapi(env, argv[INDEX_0]));
+    asyncInfo->GetData().SetIsReboot(isReboot);
+    POWER_HILOGD(FEATURE_SHUTDOWN, "reboot: %{public}d, reason: %{public}s", isReboot,
+        asyncInfo->GetData().GetReason().c_str());
+
+    napi_value promise;
+    asyncInfo->CreatePromise(env, promise);
+    RETURN_IF_WITH_RET(promise == nullptr, nullptr);
+
+    AsyncWork(
+        env, asyncInfo, isReboot ? "RebootAsync" : "ShutdownAsync",
+        [](napi_env env, void* data) {
+            AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
+            RETURN_IF(asyncInfo == nullptr);
+            PowerErrors error;
+            if (asyncInfo->GetData().GetIsReboot()) {
+                error = g_powerMgrClient.RebootDevice(asyncInfo->GetData().GetReason());
+            } else {
+                error = g_powerMgrClient.ShutDownDevice(asyncInfo->GetData().GetReason());
+            }
+            if (error != PowerErrors::ERR_OK && error != PowerErrors::ERR_SKIP_FUNCTION_CALL) {
+                asyncInfo->GetError().Error(error);
+            }
+        },
+        SettlePromise);
+    return promise;
 }
 
 napi_value PowerNapi::SetScreenOffTime(napi_env env, napi_callback_info info)

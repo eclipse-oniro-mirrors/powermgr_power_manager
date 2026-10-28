@@ -57,6 +57,30 @@ public:
         {
             return powerSubMode_;
         }
+        inline void SetReason(const std::string& reason)
+        {
+            reason_ = reason;
+        }
+        inline const std::string& GetReason() const
+        {
+            return reason_;
+        }
+        inline void SetIsImmediate(bool isImmediate)
+        {
+            isImmediate_ = isImmediate;
+        }
+        inline bool GetIsImmediate() const
+        {
+            return isImmediate_;
+        }
+        inline void SetIsReboot(bool isReboot)
+        {
+            isReboot_ = isReboot;
+        }
+        inline bool GetIsReboot() const
+        {
+            return isReboot_;
+        }
         // runninglock
         void SetType(napi_env& env, napi_value& type);
         void SetName(napi_env& env, napi_value& name);
@@ -71,6 +95,9 @@ public:
         // power
         PowerMode powerMode_ = PowerMode::NORMAL_MODE;
         PowerSubMode powerSubMode_ = PowerSubMode::SUB_MODE_EMERGENCY;
+        std::string reason_;
+        bool isImmediate_ = false;
+        bool isReboot_ = false;
         // runninglock
         RunningLockType type_ = RunningLockType::RUNNINGLOCK_BUTT;
         std::string name_;
