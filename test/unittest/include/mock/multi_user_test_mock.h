@@ -17,27 +17,23 @@
 #define POWERMGR_MULTI_USER_TEST_MOCK_H
 
 #include <cstdint>
-#include <vector>
+#include <map>
 
 #ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
 
-#include "display_mgr_errors.h"
 #include "display_power_info.h"
 #include "errors.h"
 
 namespace OHOS::PowerMgr::TestMock {
-// display_manager multi-screen link-time mock (mock_display_power_mgr_client_multi_user.cpp)
+// display_manager multi-screen link-time mock (mock_display_power_mgr_client_multi_user.cpp).
+// The slimmed adapter consumes only the one-call map<displayId, state> query, so the mock exposes
+// the map directly for the test to populate.
 void ResetDisplayMock();
-OHOS::DisplayPowerMgr::DisplayState& MockDisplayStateValue();
-OHOS::DisplayPowerMgr::DisplayErrors& MockDisplayGetStateRet();
-OHOS::DisplayPowerMgr::DisplayErrors& MockDisplayRegisterRet();
-std::vector<uint32_t>& MockDisplayIds();
-OHOS::DisplayPowerMgr::DisplayState& MockMainDisplayState();
-int& MockGetStateCallCount();
-int& MockRegisterCallCount();
-int& MockUnregisterCallCount();
+std::map<uint64_t, OHOS::DisplayPowerMgr::DisplayState>& MockMultiScreenStates();
 
-// OsAccountManager link-time mock (mock_os_account_manager_multi_user.cpp)
+// OsAccountManager link-time mock (mock_os_account_manager_multi_user.cpp).
+// The adapter calls GetForegroundOsAccountDisplayId (userId -> displayId) on the IsScreenOnForUser
+// path; GetForegroundOsAccountLocalId is also mocked for completeness.
 void ResetOsAccountMock();
 ErrCode& MockLocalIdRet();
 int32_t& MockLocalId();
@@ -45,17 +41,6 @@ ErrCode& MockDisplayIdRet();
 uint64_t& MockDisplayId();
 int& MockLocalIdCallCount();
 int& MockDisplayIdCallCount();
-
-// CommonEventManager link-time mock (mock_common_event_manager_as_user.cpp)
-void ResetCommonEventMock();
-bool& MockPublishAsUserRet();
-int& MockPublishAsUserCallCount();
-int32_t& MockPublishAsUserLastUserId();
-int& MockPublishAsUserOnCount();
-int& MockPublishAsUserOffCount();
-int& MockWholeMachineCallCount();
-int& MockWholeMachineOnCount();
-int& MockWholeMachineOffCount();
 } // namespace OHOS::PowerMgr::TestMock
 #endif // POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
 #endif // POWERMGR_MULTI_USER_TEST_MOCK_H

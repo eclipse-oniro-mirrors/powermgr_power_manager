@@ -18,49 +18,37 @@
 #ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
 
 #include <cinttypes>
+#include <map>
 
-#include <display_mgr_errors.h>
+#include <display_power_info.h>
 #include <display_power_mgr_client.h>
 #include <errors.h>
 #include <os_account_manager.h>
+#include <os_account_constants.h>
+#include <ipc_skeleton.h>
 
 #include "power_log.h"
 
 namespace OHOS {
 namespace PowerMgr {
-namespace {
-using DisplayErrors = OHOS::DisplayPowerMgr::DisplayErrors;
-using MultiScreenStateChangeReason = OHOS::DisplayPowerMgr::MultiScreenStateChangeReason;
-using OHOS::DisplayPowerMgr::DISPLAY_ID_ALL;
 
-inline bool IsDisplayOnState(OHOS::DisplayPowerMgr::DisplayState state)
+bool MultiUserScreenAdapter::IsSystemAccount(int32_t userId)
 {
-    return state == OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON ||
-        state == OHOS::DisplayPowerMgr::DisplayState::DISPLAY_DIM;
+    return userId >= AccountSA::Constants::START_USER_ID && userId <= AccountSA::Constants::MAX_USER_ID;
 }
-} // namespace
 
-sptr<MultiUserScreenAdapter::MultiScreenCallback> MultiUserScreenAdapter::multiScreenCallback_;
-MultiUserScreenAdapter::ScreenChangeHandler MultiUserScreenAdapter::screenChangeHandler_;
+bool MultiUserScreenAdapter::IsValidUserId(int32_t userId)
+{
+    constexpr int32_t SYSTEM_USER_ID = 0;
+    return userId == SYSTEM_USER_ID
+        || (userId >= AccountSA::Constants::START_USER_ID && userId <= AccountSA::Constants::MAX_USER_ID);
+}
 
 int32_t MultiUserScreenAdapter::GetUserIdFromUid(int32_t uid)
 {
-    if (uid < 0) {
-        return INVALID_USER_ID;
-    }
-    return uid / UID_TRANSFORM_DIVISOR;
-}
-
-int32_t MultiUserScreenAdapter::GetUserIdByDisplayId(uint64_t displayId)
-{
-    int32_t localId = INVALID_USER_ID;
-    ErrCode ret = AccountSA::OsAccountManager::GetForegroundOsAccountLocalId(displayId, localId);
-    if (ret != ERR_OK) {
-        POWER_HILOGW(COMP_SVC, "GetForegroundOsAccountLocalId failed, displayId=%{public}" PRIu64 " ret=%{public}d",
-            displayId, ret);
-        return INVALID_USER_ID;
-    }
-    return localId;
+    int32_t userId = 0;
+    AccountSA::OsAccountManager::GetOsAccountLocalIdFromUid(uid, userId);
+    return userId;
 }
 
 uint64_t MultiUserScreenAdapter::GetDisplayIdByUserId(int32_t userId)
@@ -68,41 +56,31 @@ uint64_t MultiUserScreenAdapter::GetDisplayIdByUserId(int32_t userId)
     uint64_t displayId = INVALID_DISPLAY_ID;
     ErrCode ret = AccountSA::OsAccountManager::GetForegroundOsAccountDisplayId(userId, displayId);
     if (ret != ERR_OK) {
-        POWER_HILOGW(COMP_SVC, "GetForegroundOsAccountDisplayId failed, userId=%{public}d ret=%{public}d", userId, ret);
+        POWER_HILOGW(COMP_SVC, "GetForegroundOsAccountDisplayId failed, userId=%{public}d ret=%{public}d",
+            userId, ret);
         return INVALID_DISPLAY_ID;
     }
     return displayId;
 }
 
-bool MultiUserScreenAdapter::IsDisplayOn(uint64_t displayId)
+int32_t MultiUserScreenAdapter::GetUserIdByDisplayId(uint64_t displayId)
 {
-    OHOS::DisplayPowerMgr::DisplayState state = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_UNKNOWN;
-    DisplayErrors ret = OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance().GetMultiScreenDisplayState(
-        displayId, state);
-    if (ret != DisplayErrors::ERR_OK) {
-        POWER_HILOGW(COMP_SVC, "GetMultiScreenDisplayState failed, displayId=%{public}" PRIu64 " ret=%{public}d",
-            displayId, static_cast<int32_t>(ret));
-        return false;
+    int32_t userId = INVALID_USER_ID;
+    ErrCode err = AccountSA::OsAccountManager::GetForegroundOsAccountLocalId(
+        static_cast<uint32_t>(displayId), userId);
+    if (err != ERR_OK) {
+        POWER_HILOGW(COMP_SVC,
+            "GetForegroundOsAccountLocalId failed, displayId=%{public}" PRIu64 ", ret=%{public}d",
+            displayId, err);
+        return INVALID_USER_ID;
     }
-    return IsDisplayOnState(state);
+    return userId;
 }
 
-bool MultiUserScreenAdapter::IsAnyScreenOn(uint64_t excludeDisplayId)
+bool MultiUserScreenAdapter::IsOnState(uint32_t state)
 {
-    // Whole-machine query over the multi-screen display set only. This feature is enabled solely on
-    // cockpit multi-display products, where GetDisplayIds is populated once the display SA is online,
-    // so there is no single-screen fallback path.
-    auto& client = OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance();
-    for (uint32_t id : client.GetDisplayIds()) {
-        uint64_t displayId = static_cast<uint64_t>(id);
-        if (displayId == excludeDisplayId) {
-            continue;
-        }
-        if (IsDisplayOn(displayId)) {
-            return true;
-        }
-    }
-    return false;
+    return state == static_cast<uint32_t>(OHOS::DisplayPowerMgr::DisplayState::DISPLAY_ON) ||
+        state == static_cast<uint32_t>(OHOS::DisplayPowerMgr::DisplayState::DISPLAY_DIM);
 }
 
 bool MultiUserScreenAdapter::IsScreenOnForUser(int32_t userId)
@@ -112,75 +90,43 @@ bool MultiUserScreenAdapter::IsScreenOnForUser(int32_t userId)
         POWER_HILOGI(COMP_SVC, "no display for userId=%{public}d, report screen off", userId);
         return false;
     }
-    return IsDisplayOn(displayId);
+    // Single-screen query: one IPC for the user's bound display state.
+    std::string identity = IPCSkeleton::ResetCallingIdentity();
+    OHOS::DisplayPowerMgr::DisplayState state = OHOS::DisplayPowerMgr::DisplayState::DISPLAY_UNKNOWN;
+    auto ret = OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance().GetMultiScreenDisplayState(displayId, state);
+    IPCSkeleton::SetCallingIdentity(identity);
+    if (ret != OHOS::DisplayPowerMgr::DisplayErrors::ERR_OK) {
+        POWER_HILOGW(COMP_SVC, "GetMultiScreenDisplayState failed displayId=%{public}" PRIu64 " ret=%{public}d",
+            displayId, static_cast<int32_t>(ret));
+        return false;
+    }
+    return IsOnState(static_cast<uint32_t>(state));
 }
 
-void MultiUserScreenAdapter::SetScreenChangeHandler(ScreenChangeHandler handler)
+bool MultiUserScreenAdapter::IsUserMainScreen(uint64_t displayId)
 {
-    screenChangeHandler_ = std::move(handler);
+    int32_t userId = GetUserIdByDisplayId(displayId);
+    if (userId == INVALID_USER_ID) {
+        return false;
+    }
+    return GetDisplayIdByUserId(userId) == displayId;
 }
 
-void MultiUserScreenAdapter::InitMultiScreenNotify(uint32_t reason)
+
+bool MultiUserScreenAdapter::IsAnyScreenOn()
 {
-    // Replay each multi-screen display's current state through the handler. Only multi-screen APIs are
-    // used: this feature is enabled solely on cockpit multi-display products, where GetDisplayIds is
-    // populated once the display SA is online (OnAddSystemAbility fires after it's added).
-    auto& client = OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance();
-    for (uint32_t id : client.GetDisplayIds()) {
-        uint64_t displayId = static_cast<uint64_t>(id);
-        bool isOn = IsDisplayOn(displayId);
-        POWER_HILOGI(COMP_SVC, "InitMultiScreenNotify displayId=%{public}" PRIu64 " on=%{public}d",
-            displayId, isOn);
-        if (screenChangeHandler_) {
-            screenChangeHandler_(displayId, isOn, reason);
+    // Whole-machine query: any screen ON/DIM in display_manager's one-call vector of all screens.
+    std::string identity = IPCSkeleton::ResetCallingIdentity();
+    auto states = OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance().GetAllMultiScreenDisplayState();
+    IPCSkeleton::SetCallingIdentity(identity);
+    for (const auto& [id, state] : states) {
+        if (IsUserMainScreen(id) && IsOnState(static_cast<uint32_t>(state))) {
+            return true;
         }
     }
+    return false;
 }
 
-bool MultiUserScreenAdapter::RegisterScreenStateCallback()
-{
-    if (multiScreenCallback_ == nullptr) {
-        multiScreenCallback_ = new (std::nothrow) MultiScreenCallback();
-    }
-    if (multiScreenCallback_ == nullptr) {
-        POWER_HILOGE(COMP_SVC, "create MultiScreenCallback failed");
-        return false;
-    }
-    DisplayErrors ret =
-        OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance().RegisterMultiScreenDisplayStateCallback(
-            multiScreenCallback_, DISPLAY_ID_ALL);
-    POWER_HILOGI(COMP_SVC, "RegisterMultiScreenDisplayStateCallback ret=%{public}d", static_cast<int32_t>(ret));
-    return ret == DisplayErrors::ERR_OK;
-}
-
-bool MultiUserScreenAdapter::UnregisterScreenStateCallback()
-{
-    if (multiScreenCallback_ == nullptr) {
-        return false;
-    }
-    DisplayErrors ret =
-        OHOS::DisplayPowerMgr::DisplayPowerMgrClient::GetInstance().UnregisterMultiScreenDisplayStateCallback(
-            multiScreenCallback_, DISPLAY_ID_ALL);
-    POWER_HILOGI(COMP_SVC, "UnregisterMultiScreenDisplayStateCallback ret=%{public}d", static_cast<int32_t>(ret));
-    if (ret == DisplayErrors::ERR_OK) {
-        multiScreenCallback_ = nullptr;
-    }
-    return ret == DisplayErrors::ERR_OK;
-}
-
-void MultiUserScreenAdapter::MultiScreenCallback::OnMultiScreenDisplayStateChanged(uint64_t displayId,
-    const std::string& screenName, OHOS::DisplayPowerMgr::DisplayState state, MultiScreenStateChangeReason reason)
-{
-    bool isScreenOn = IsDisplayOnState(state);
-    uint32_t reasonValue = static_cast<uint32_t>(reason);
-    POWER_HILOGI(COMP_SVC,
-        "OnMultiScreenDisplayStateChanged displayId=%{public}" PRIu64 " screen=%{public}s state=%{public}u "
-        "on=%{public}d reason=%{public}u",
-        displayId, screenName.c_str(), static_cast<uint32_t>(state), isScreenOn, reasonValue);
-    if (screenChangeHandler_) {
-        screenChangeHandler_(displayId, isScreenOn, reasonValue);
-    }
-}
 } // namespace PowerMgr
 } // namespace OHOS
 #endif // POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION

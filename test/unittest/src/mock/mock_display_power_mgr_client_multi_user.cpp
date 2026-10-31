@@ -14,113 +14,65 @@
  */
 
 #include <cstdint>
+#include <map>
+#include <utility>
 #include <vector>
 
 #ifdef HAS_DISPLAY_MANAGER_PART
-#include "display_mgr_errors.h"
 #include "display_power_info.h"
 #include "display_power_mgr_client.h"
 #endif
 
 #ifdef DISPLAY_MANAGER_ENABLE_MULTI_SCREEN_STATE
 namespace {
-// Link-time mock state, set by the multi-user test to drive the real MultiUserScreenAdapter entry
-// functions with controlled display_manager return values (instead of live display SA IPC).
+// Link-time mock state for the slimmed MultiUserScreenAdapter, which consumes two display queries:
+// the 2-arg single-screen GetMultiScreenDisplayState(displayId, state&) (IsScreenOnForUser) and the
+// 0-arg whole-machine GetAllMultiScreenDisplayState() (IsAnyScreenOn). The test populates
+// MockMultiScreenStates() (a map<displayId, state>) to drive both without a live display SA.
 struct MockDisplayState {
-    OHOS::DisplayPowerMgr::DisplayErrors getStateRet {OHOS::DisplayPowerMgr::DisplayErrors::ERR_OK};
-    OHOS::DisplayPowerMgr::DisplayState state {OHOS::DisplayPowerMgr::DisplayState::DISPLAY_UNKNOWN};
-    OHOS::DisplayPowerMgr::DisplayErrors registerRet {OHOS::DisplayPowerMgr::DisplayErrors::ERR_OK};
-    OHOS::DisplayPowerMgr::DisplayErrors unregisterRet {OHOS::DisplayPowerMgr::DisplayErrors::ERR_OK};
-    std::vector<uint32_t> displayIds {};
-    OHOS::DisplayPowerMgr::DisplayState mainDisplayState {OHOS::DisplayPowerMgr::DisplayState::DISPLAY_UNKNOWN};
-    int getStateCallCount {0};
-    int registerCallCount {0};
-    int unregisterCallCount {0};
-    int getDisplayIdsCallCount {0};
-    int getDisplayStateCallCount {0};
-    uint64_t lastGetStateDisplayId {0};
+    std::map<uint64_t, OHOS::DisplayPowerMgr::DisplayState> states {};
+    int getMultiScreenCallCount {0};
 };
 MockDisplayState g_mockDisplay;
 } // namespace
 
-// Accessors used by the test to reset/inspect mock state across cases.
 namespace OHOS::PowerMgr::TestMock {
 void ResetDisplayMock()
 {
     g_mockDisplay = MockDisplayState {};
 }
-OHOS::DisplayPowerMgr::DisplayState& MockDisplayStateValue()
+std::map<uint64_t, OHOS::DisplayPowerMgr::DisplayState>& MockMultiScreenStates()
 {
-    return g_mockDisplay.state;
-}
-OHOS::DisplayPowerMgr::DisplayErrors& MockDisplayGetStateRet()
-{
-    return g_mockDisplay.getStateRet;
-}
-OHOS::DisplayPowerMgr::DisplayErrors& MockDisplayRegisterRet()
-{
-    return g_mockDisplay.registerRet;
-}
-std::vector<uint32_t>& MockDisplayIds()
-{
-    return g_mockDisplay.displayIds;
-}
-OHOS::DisplayPowerMgr::DisplayState& MockMainDisplayState()
-{
-    return g_mockDisplay.mainDisplayState;
-}
-int& MockGetStateCallCount()
-{
-    return g_mockDisplay.getStateCallCount;
-}
-int& MockRegisterCallCount()
-{
-    return g_mockDisplay.registerCallCount;
-}
-int& MockUnregisterCallCount()
-{
-    return g_mockDisplay.unregisterCallCount;
+    return g_mockDisplay.states;
 }
 } // namespace OHOS::PowerMgr::TestMock
 
 namespace OHOS::DisplayPowerMgr {
+// Single-screen query (IsScreenOnForUser path): look up the bound displayId in the mock map.
+// Found -> state + ERR_OK; absent -> DISPLAY_UNKNOWN + a non-OK error (adapter reports off).
 DisplayErrors DisplayPowerMgrClient::GetMultiScreenDisplayState(uint64_t displayId, DisplayState& state)
 {
-    g_mockDisplay.getStateCallCount++;
-    g_mockDisplay.lastGetStateDisplayId = displayId;
-    state = g_mockDisplay.state;
-    return g_mockDisplay.getStateRet;
+    g_mockDisplay.getMultiScreenCallCount++;
+    auto it = g_mockDisplay.states.find(displayId);
+    if (it == g_mockDisplay.states.end()) {
+        state = DisplayState::DISPLAY_UNKNOWN;
+        return DisplayErrors::ERR_CONNECTION_FAIL;
+    }
+    state = it->second;
+    return DisplayErrors::ERR_OK;
 }
 
-DisplayErrors DisplayPowerMgrClient::RegisterMultiScreenDisplayStateCallback(
-    sptr<IMultiScreenDisplayStateCallback> callback, uint64_t displayId)
+// Whole-machine query (IsAnyScreenOn path): return the mock states as a vector of
+// {displayId, state} pairs (the new display_manager interface contract). IsAnyScreenOn iterates
+// it for any ON/DIM screen.
+std::vector<std::pair<uint64_t, DisplayState>> DisplayPowerMgrClient::GetAllMultiScreenDisplayState()
 {
-    g_mockDisplay.registerCallCount++;
-    (void)callback;
-    (void)displayId;
-    return g_mockDisplay.registerRet;
-}
-
-DisplayErrors DisplayPowerMgrClient::UnregisterMultiScreenDisplayStateCallback(
-    sptr<IMultiScreenDisplayStateCallback> callback, uint64_t displayId)
-{
-    g_mockDisplay.unregisterCallCount++;
-    (void)callback;
-    (void)displayId;
-    return g_mockDisplay.unregisterRet;
-}
-
-std::vector<uint32_t> DisplayPowerMgrClient::GetDisplayIds()
-{
-    g_mockDisplay.getDisplayIdsCallCount++;
-    return g_mockDisplay.displayIds;
-}
-
-DisplayState DisplayPowerMgrClient::GetDisplayState(uint32_t id)
-{
-    g_mockDisplay.getDisplayStateCallCount++;
-    (void)id;
-    return g_mockDisplay.mainDisplayState;
+    g_mockDisplay.getMultiScreenCallCount++;
+    std::vector<std::pair<uint64_t, DisplayState>> result;
+    for (const auto& [id, st] : g_mockDisplay.states) {
+        result.emplace_back(id, st);
+    }
+    return result;
 }
 } // namespace OHOS::DisplayPowerMgr
 #endif // DISPLAY_MANAGER_ENABLE_MULTI_SCREEN_STATE

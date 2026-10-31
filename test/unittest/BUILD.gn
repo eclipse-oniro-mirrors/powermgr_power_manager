@@ -1172,9 +1172,10 @@ ohos_unittest("test_power_mgr_service_native") {
 ##############################multi_user_screen_adapter##############################
 # Cockpit multi-screen multi-user adaptation: drives the real PowerMgrService::IsScreenOn /
 # OnAddSystemAbility / MultiScreenCallback::OnMultiScreenDisplayStateChanged /
-# PowerMgrNotify::PublishScreenOnEventsToUser / MultiUserScreenAdapter entries with link-time mocks
-# for display_manager multi-screen APIs, OsAccountManager display<->user mapping and the per-user
-# common-event broadcast. Only built when the feature flag is on (coverage of the new code path).
+# MultiUserScreenAdapter query entries (IsScreenOnForUser / IsAnyScreenOn / GetDisplayIdByUserId)
+# with link-time mocks for display_manager's one-call map<displayId, state> query and OsAccountManager
+# userId<->displayId mapping. Broadcast isolation moved to display_manager, so only the query adapter
+# is exercised here. Only built when the feature flag is on (coverage of the new code path).
 ohos_unittest("test_multi_user_screen_adapter") {
   module_out_path = module_output_path
   defines += defs
@@ -1195,7 +1196,6 @@ ohos_unittest("test_multi_user_screen_adapter") {
     "src/multi_user_screen_adapter_test.cpp",
     "src/mock/mock_display_power_mgr_client_multi_user.cpp",
     "src/mock/mock_os_account_manager_multi_user.cpp",
-    "src/mock/mock_common_event_manager_as_user.cpp",
   ]
 
   include_dirs = [

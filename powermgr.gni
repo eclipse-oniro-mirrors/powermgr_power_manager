@@ -58,9 +58,7 @@ declare_args() {
   # Disable screen-coupled SuspendDevice/ForceSuspendDevice
   # and enable ForceSuspendDeviceIgnoringWakelock (HDI V1_4, ignore running locks).
   power_manager_feature_enable_force_suspend_ignoring_wakelock = false
-  # Cockpit multi-screen multi-user: isolate screen on/off broadcast per user space and
-  # adapt IsScreenOn query by caller identity (U10X -> per-display, SA/U0 -> whole-machine).
-  power_manager_feature_multi_user_screen_adaptation = true
+  power_manager_feature_multi_user_screen_adaptation = false
 }
 
 defines = []
