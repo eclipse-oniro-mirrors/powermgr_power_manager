@@ -138,6 +138,9 @@ public:
     virtual bool RegisterSyncHibernateCallback(const sptr<ISyncHibernateCallback>& callback,
         HibernateCallbackPriority priority) override;
     virtual bool UnRegisterSyncHibernateCallback(const sptr<ISyncHibernateCallback>& callback) override;
+    virtual PowerErrors RegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback,
+        HibernateCallbackPriority priority) override;
+    virtual PowerErrors UnRegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback) override;
 
     virtual PowerErrors RegisterUlsrCallback(const sptr<IUlsrCallback>& callback, UlsrPriority priority) override;
     virtual PowerErrors UnRegisterUlsrCallback(const sptr<IUlsrCallback>& callback) override;

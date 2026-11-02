@@ -73,6 +73,10 @@ public:
     virtual int32_t RegisterSyncHibernateCallbackIpc(
         const sptr<ISyncHibernateCallback>& callback, int32_t priorityValue) override;
     virtual int32_t UnRegisterSyncHibernateCallbackIpc(const sptr<ISyncHibernateCallback>& callback) override;
+    virtual int32_t RegisterSyncHibernateCallbackExIpc(
+        const sptr<ISyncHibernateCallback>& callback, int32_t priorityValue, int32_t& powerError) override;
+    virtual int32_t UnRegisterSyncHibernateCallbackExIpc(
+        const sptr<ISyncHibernateCallback>& callback, int32_t& powerError) override;
 
     virtual int32_t RegisterSuspendTakeoverCallbackIpc(
         const sptr<ITakeOverSuspendCallback>& callback, int32_t priority) override;
@@ -186,6 +190,9 @@ public:
     virtual bool RegisterSyncHibernateCallback(const sptr<ISyncHibernateCallback>& callback,
         HibernateCallbackPriority priority) = 0;
     virtual bool UnRegisterSyncHibernateCallback(const sptr<ISyncHibernateCallback>& callback) = 0;
+    virtual PowerErrors RegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback,
+        HibernateCallbackPriority priority) = 0;
+    virtual PowerErrors UnRegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback) = 0;
 
     virtual bool RegisterPowerModeCallback(const sptr<IPowerModeCallback>& callback) = 0;
     virtual bool UnRegisterPowerModeCallback(const sptr<IPowerModeCallback>& callback) = 0;

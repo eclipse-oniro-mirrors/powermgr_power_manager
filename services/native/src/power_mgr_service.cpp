@@ -2212,6 +2212,43 @@ bool PowerMgrService::UnRegisterSyncHibernateCallback(const sptr<ISyncHibernateC
 #endif
 }
 
+PowerErrors PowerMgrService::RegisterSyncHibernateCallbackEx(
+    const sptr<ISyncHibernateCallback>& callback, HibernateCallbackPriority priority)
+{
+    if (!Permission::IsSystem()) {
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterSyncHibernateCallbackEx failed, System permission intercept");
+        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    }
+    if (!Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterSyncHibernateCallbackEx failed, no POWER_MANAGER permission");
+        return PowerErrors::ERR_PERMISSION_DENIED;
+    }
+    if (callback == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterSyncHibernateCallbackEx failed, callback is nullptr");
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    RegisterSyncHibernateCallback(callback, priority);
+    return PowerErrors::ERR_OK;
+}
+
+PowerErrors PowerMgrService::UnRegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback)
+{
+    if (!Permission::IsSystem()) {
+        POWER_HILOGE(FEATURE_SUSPEND, "UnRegisterSyncHibernateCallbackEx failed, System permission intercept");
+        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    }
+    if (!Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
+        POWER_HILOGE(FEATURE_SUSPEND, "UnRegisterSyncHibernateCallbackEx failed, no POWER_MANAGER permission");
+        return PowerErrors::ERR_PERMISSION_DENIED;
+    }
+    if (callback == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "UnRegisterSyncHibernateCallbackEx failed, callback is nullptr");
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    UnRegisterSyncHibernateCallback(callback);
+    return PowerErrors::ERR_OK;
+}
+
 PowerErrors PowerMgrService::RegisterUlsrCallback(const sptr<IUlsrCallback>& callback, UlsrPriority priority)
 {
     if (!Permission::IsSystem()) {

@@ -181,6 +181,15 @@ public:
     {
         return true;
     }
+    PowerErrors RegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback,
+        HibernateCallbackPriority priority)
+    {
+        return PowerErrors::ERR_OK;
+    }
+    PowerErrors UnRegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback)
+    {
+        return PowerErrors::ERR_OK;
+    }
     bool RegisterPowerModeCallback(const sptr<IPowerModeCallback>& callback)
     {
         return true;

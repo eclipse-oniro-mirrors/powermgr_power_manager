@@ -302,6 +302,9 @@ public:
     bool RegisterSyncHibernateCallback(
         const sptr<ISyncHibernateCallback>& callback, HibernateCallbackPriority priority);
     bool UnRegisterSyncHibernateCallback(const sptr<ISyncHibernateCallback>& callback);
+    PowerErrors RegisterSyncHibernateCallbackEx(
+        const sptr<ISyncHibernateCallback>& callback, HibernateCallbackPriority priority);
+    PowerErrors UnRegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback);
     bool RegisterSyncSleepCallback(const sptr<ISyncSleepCallback>& callback, SleepPriority priority);
     bool UnRegisterSyncSleepCallback(const sptr<ISyncSleepCallback>& callback);
     bool RegisterSuspendTakeoverCallback(

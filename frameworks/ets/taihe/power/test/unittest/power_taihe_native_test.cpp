@@ -21,8 +21,16 @@
 #include "taihe/runtime.hpp"
 #include "power_mgr_client.h"
 #include "power_shutdown_callback.h"
+#include "power_hibernate_callback.h"
 #include "power_errors.h"
 #include "power_log.h"
+#include "event_handler.h"
+#include "event_runner.h"
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <memory>
+#include <thread>
 
 using namespace taihe;
 using namespace ohos::power;
@@ -32,6 +40,8 @@ using namespace testing;
 using namespace testing::ext;
 
 namespace {
+constexpr int64_t HIBERNATE_CALLBACK_TEST_DELAY_MS = 50; // ms
+constexpr int64_t MAIN_RUNNER_START_TIMEOUT_MS = 1000; // ms
 PowerErrors g_error = PowerErrors::ERR_OK;
 bool g_pass = false;
 bool g_cbFlag = false;
@@ -56,20 +66,20 @@ bool PowerMgrClient::IsScreenOn(bool needPrintLog)
 }
 
 PowerErrors PowerMgrClient::WakeupDevice(
-    WakeupDeviceType reason, const std::string& detail)
+    WakeupDeviceType reason, const std::string& detail, const std::string& apiVersion)
 {
     g_pass = true;
     return g_error;
 }
 
-PowerErrors PowerMgrClient::ForceSuspendDevice()
+PowerErrors PowerMgrClient::ForceSuspendDevice(const std::string& apiVersion)
 {
     g_pass = true;
     return g_error;
 }
 
 PowerErrors PowerMgrClient::SuspendDevice(
-    SuspendDeviceType reason, bool suspendImmed)
+    SuspendDeviceType reason, bool suspendImmed, const std::string& apiVersion)
 {
     g_pass = true;
     return g_error;
@@ -149,13 +159,52 @@ PowerErrors PowerMgrClient::SetPowerConfig(const std::string& sceneName, const s
     g_configVal = configVal;
     return g_error;
 }
+
+PowerErrors PowerMgrClient::RegisterSyncHibernateCallbackEx(
+    const sptr<ISyncHibernateCallback>& callback, HibernateCallbackPriority priority)
+{
+    (void)callback;
+    (void)priority;
+    g_pass = true;
+    return g_error;
+}
+
+PowerErrors PowerMgrClient::UnRegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback)
+{
+    (void)callback;
+    g_pass = true;
+    return g_error;
+}
+
 } // namespace OHOS::PowerMgr
 
 namespace {
 class PowerTaiheNativeTest : public ::testing::Test {
 public:
-    static void SetUpTestCase() {}
-    static void TearDownTestCase() {}
+    static void SetUpTestCase()
+    {
+        // Callbacks are posted to the process main event runner, which is running in an app process
+        // but not in the gtest process, so start it here and stop it after the suite.
+        runner_ = OHOS::AppExecFwk::EventRunner::GetMainEventRunner();
+        if (runner_ == nullptr) {
+            return;
+        }
+        auto started = std::make_shared<std::promise<void>>();
+        auto startedFuture = started->get_future();
+        runnerThread_ = std::thread([]() { runner_->Run(); });
+        OHOS::AppExecFwk::EventHandler handler(runner_);
+        handler.PostTask([started]() { started->set_value(); });
+        (void)startedFuture.wait_for(std::chrono::milliseconds(MAIN_RUNNER_START_TIMEOUT_MS));
+    }
+    static void TearDownTestCase()
+    {
+        if (runner_ != nullptr) {
+            runner_->Stop();
+        }
+        if (runnerThread_.joinable()) {
+            runnerThread_.join();
+        }
+    }
     void SetUp()
     {
         EXPECT_FALSE(g_pass);
@@ -169,7 +218,14 @@ public:
         g_errCode = 0;
         g_configVal.clear();
     }
+
+private:
+    static std::shared_ptr<OHOS::AppExecFwk::EventRunner> runner_;
+    static std::thread runnerThread_;
 };
+
+std::shared_ptr<OHOS::AppExecFwk::EventRunner> PowerTaiheNativeTest::runner_ = nullptr;
+std::thread PowerTaiheNativeTest::runnerThread_;
 
 /**
  * @tc.name: PowerTaiheNativeTest_001
@@ -542,6 +598,272 @@ HWTEST_F(PowerTaiheNativeTest, PowerTaiheNativeTest_016, TestSize.Level1)
     EXPECT_TRUE(g_errCode == static_cast<int32_t>(PowerErrors::ERR_WRITE_OPERATION_FAILED));
     EXPECT_TRUE(g_pass);
     POWER_HILOGI(LABEL_TEST, "PowerTaiheNativeTest_016 end");
+}
+class TestHibernateCallback {
+public:
+    explicit TestHibernateCallback(std::shared_ptr<std::atomic<bool>> entered) : entered_(std::move(entered)) {}
+
+    taihe::future<taihe::expected<void, taihe::error>> onHibernate()
+    {
+        entered_->store(true);
+        auto [complete, future] = taihe::make_async_pair<taihe::expected<void, taihe::error>>();
+        std::thread([complete = std::move(complete)]() mutable {
+            std::this_thread::sleep_for(std::chrono::milliseconds(HIBERNATE_CALLBACK_TEST_DELAY_MS));
+            complete.complete();
+        }).detach();
+        return std::move(future);
+    }
+
+    taihe::future<taihe::expected<void, taihe::error>> onWakeup(bool hibernateResult)
+    {
+        (void)hibernateResult;
+        auto [complete, future] = taihe::make_async_pair<taihe::expected<void, taihe::error>>();
+        complete.complete();
+        return std::move(future);
+    }
+
+private:
+    std::shared_ptr<std::atomic<bool>> entered_;
+};
+
+/**
+ * @tc.name: HibernateCallbackWaitsForPromise
+ * @tc.desc: test OnSyncHibernate waits for onHibernate promise
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, HibernateCallbackWaitsForPromise, TestSize.Level1)
+{
+    auto entered = std::make_shared<std::atomic<bool>>(false);
+    auto callback = taihe::make_holder<TestHibernateCallback, ohos::power::HibernateCallback>(entered);
+    OHOS::sptr<PowerHibernateCallback> stub = new PowerHibernateCallback();
+    stub->CreateCallback(callback);
+
+    int64_t minWaitMs = 40; // ms
+    int64_t maxWaitMs = 3000; // ms
+    auto start = std::chrono::steady_clock::now();
+    stub->OnSyncHibernate();
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_TRUE(entered->load());
+    EXPECT_GE(elapsed, std::chrono::milliseconds(minWaitMs));
+    EXPECT_LT(elapsed, std::chrono::milliseconds(maxWaitMs));
+    stub->ReleaseCallback();
+}
+class TestWakeupHibernateCallback {
+public:
+    explicit TestWakeupHibernateCallback(std::shared_ptr<std::atomic<int32_t>> wakeupResult)
+        : wakeupResult_(std::move(wakeupResult)) {}
+
+    taihe::future<taihe::expected<void, taihe::error>> onHibernate()
+    {
+        auto [complete, future] = taihe::make_async_pair<taihe::expected<void, taihe::error>>();
+        complete.complete();
+        return std::move(future);
+    }
+
+    taihe::future<taihe::expected<void, taihe::error>> onWakeup(bool hibernateResult)
+    {
+        wakeupResult_->store(hibernateResult ? 1 : 0);
+        auto [complete, future] = taihe::make_async_pair<taihe::expected<void, taihe::error>>();
+        complete.complete();
+        return std::move(future);
+    }
+
+private:
+    std::shared_ptr<std::atomic<int32_t>> wakeupResult_;
+};
+
+/**
+ * @tc.name: RegisterHibernateCallbackInvalidHandle
+ * @tc.desc: test RegisterHibernateCallback rejects an invalid callback handle
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerTaiheNativeTest, RegisterHibernateCallbackInvalidHandle, TestSize.Level1)
+{
+    ohos::power::weak::HibernateCallback callback({nullptr, nullptr});
+    RegisterHibernateCallback(callback);
+    EXPECT_EQ(g_errCode, static_cast<int32_t>(PowerErrors::ERR_PARAM_INVALID));
+    EXPECT_FALSE(g_pass);
+}
+
+/**
+ * @tc.name: RegisterHibernateCallbackSystemDenied
+ * @tc.desc: test RegisterHibernateCallback with system api denied
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, RegisterHibernateCallbackSystemDenied, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackSystemDenied start");
+    auto entered = std::make_shared<std::atomic<bool>>(false);
+    auto callback = taihe::make_holder<TestHibernateCallback, ohos::power::HibernateCallback>(entered);
+    g_error = PowerErrors::ERR_SYSTEM_API_DENIED;
+    RegisterHibernateCallback(callback);
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, static_cast<int32_t>(PowerErrors::ERR_SYSTEM_API_DENIED));
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackSystemDenied end");
+}
+
+/**
+ * @tc.name: RegisterHibernateCallbackPermissionDenied
+ * @tc.desc: test RegisterHibernateCallback with permission denied
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, RegisterHibernateCallbackPermissionDenied, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackPermissionDenied start");
+    auto entered = std::make_shared<std::atomic<bool>>(false);
+    auto callback = taihe::make_holder<TestHibernateCallback, ohos::power::HibernateCallback>(entered);
+    g_error = PowerErrors::ERR_PERMISSION_DENIED;
+    RegisterHibernateCallback(callback);
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, static_cast<int32_t>(PowerErrors::ERR_PERMISSION_DENIED));
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackPermissionDenied end");
+}
+
+/**
+ * @tc.name: RegisterHibernateCallbackClientFailed
+ * @tc.desc: test RegisterHibernateCallback with client failed
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, RegisterHibernateCallbackClientFailed, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackClientFailed start");
+    auto entered = std::make_shared<std::atomic<bool>>(false);
+    auto callback = taihe::make_holder<TestHibernateCallback, ohos::power::HibernateCallback>(entered);
+    g_error = PowerErrors::ERR_CONNECTION_FAIL;
+    RegisterHibernateCallback(callback);
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL));
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackClientFailed end");
+}
+
+/**
+ * @tc.name: RegisterHibernateCallbackSuccess
+ * @tc.desc: test RegisterHibernateCallback success
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, RegisterHibernateCallbackSuccess, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackSuccess start");
+    auto entered = std::make_shared<std::atomic<bool>>(false);
+    auto callback = taihe::make_holder<TestHibernateCallback, ohos::power::HibernateCallback>(entered);
+    RegisterHibernateCallback(callback);
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, 0);
+    UnregisterHibernateCallback();
+    POWER_HILOGI(LABEL_TEST, "RegisterHibernateCallbackSuccess end");
+}
+
+/**
+ * @tc.name: UnregisterHibernateCallbackSystemDenied
+ * @tc.desc: test UnregisterHibernateCallback with system api denied
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, UnregisterHibernateCallbackSystemDenied, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackSystemDenied start");
+    g_error = PowerErrors::ERR_SYSTEM_API_DENIED;
+    UnregisterHibernateCallback();
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, static_cast<int32_t>(PowerErrors::ERR_SYSTEM_API_DENIED));
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackSystemDenied end");
+}
+
+/**
+ * @tc.name: UnregisterHibernateCallbackPermissionDenied
+ * @tc.desc: test UnregisterHibernateCallback with permission denied
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, UnregisterHibernateCallbackPermissionDenied, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackPermissionDenied start");
+    g_error = PowerErrors::ERR_PERMISSION_DENIED;
+    UnregisterHibernateCallback();
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, static_cast<int32_t>(PowerErrors::ERR_PERMISSION_DENIED));
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackPermissionDenied end");
+}
+
+/**
+ * @tc.name: UnregisterHibernateCallbackClientFailed
+ * @tc.desc: test UnregisterHibernateCallback with client failed
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, UnregisterHibernateCallbackClientFailed, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackClientFailed start");
+    g_error = PowerErrors::ERR_CONNECTION_FAIL;
+    UnregisterHibernateCallback();
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL));
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackClientFailed end");
+}
+
+/**
+ * @tc.name: UnregisterHibernateCallbackSuccess
+ * @tc.desc: test UnregisterHibernateCallback success
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, UnregisterHibernateCallbackSuccess, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackSuccess start");
+    UnregisterHibernateCallback();
+    EXPECT_TRUE(g_pass);
+    EXPECT_EQ(g_errCode, 0);
+    POWER_HILOGI(LABEL_TEST, "UnregisterHibernateCallbackSuccess end");
+}
+
+/**
+ * @tc.name: HibernateCallbackSkipsWithoutCallback
+ * @tc.desc: test OnSyncHibernate skips without callback
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, HibernateCallbackSkipsWithoutCallback, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackSkipsWithoutCallback start");
+    OHOS::sptr<PowerHibernateCallback> stub = new PowerHibernateCallback();
+    int64_t maxWaitMs = 100; // ms
+    auto start = std::chrono::steady_clock::now();
+    stub->OnSyncHibernate();
+    stub->OnSyncWakeup(false);
+    auto elapsed = std::chrono::steady_clock::now() - start;
+    EXPECT_LT(elapsed, std::chrono::milliseconds(maxWaitMs));
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackSkipsWithoutCallback end");
+}
+
+/**
+ * @tc.name: HibernateCallbackOnWakeupWaitsForPromise
+ * @tc.desc: test OnSyncWakeup waits for onWakeup promise
+ * @tc.type: FUNC
+ * @tc.require: issue#IXXXXX
+ */
+HWTEST_F(PowerTaiheNativeTest, HibernateCallbackOnWakeupWaitsForPromise, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackOnWakeupWaitsForPromise start");
+    auto wakeupResult = std::make_shared<std::atomic<int32_t>>(-1);
+    auto callback = taihe::make_holder<TestWakeupHibernateCallback, ohos::power::HibernateCallback>(wakeupResult);
+    OHOS::sptr<PowerHibernateCallback> stub = new PowerHibernateCallback();
+    stub->CreateCallback(callback);
+
+    int64_t maxWaitMs = 3000; // ms
+    auto start = std::chrono::steady_clock::now();
+    stub->OnSyncWakeup(true);
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_EQ(wakeupResult->load(), 1);
+    EXPECT_LT(elapsed, std::chrono::milliseconds(maxWaitMs));
+    stub->ReleaseCallback();
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackOnWakeupWaitsForPromise end");
 }
 } // namespace
 

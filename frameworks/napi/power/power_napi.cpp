@@ -20,6 +20,7 @@
 #include "power_common.h"
 #include "power_log.h"
 #include "power_mgr_client.h"
+#include "power_hibernate_callback.h"
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -52,6 +53,9 @@ constexpr int32_t RESTORE_DEFAULT_SCREENOFF_TIME = -1;
 constexpr int32_t SHUTDOWN_CALLBACK_TIMEOUT = 5000;
 static PowerMgrClient& g_powerMgrClient = PowerMgrClient::GetInstance();
 thread_local sptr<PowerShutdownCallback> g_powerShutdownCallback = new (std::nothrow) PowerShutdownCallback();
+constexpr uint32_t HIBERNATE_CALLBACK_ARGC = 1;
+thread_local sptr<PowerHibernateCallback> g_powerHibernateCallback = new (std::nothrow) PowerHibernateCallback();
+constexpr const char* HIBERNATE_METHODS[] = { "onHibernate", "onWakeup" };
 
 enum class InvokeModeAction {
     ASYNC,
@@ -71,6 +75,46 @@ static InvokeModeAction ParseInvokeMode(napi_env env, napi_value value)
     }
     return invokeMode == static_cast<uint32_t>(InvokeMode::SYNC) ?
         InvokeModeAction::SYNC : InvokeModeAction::INVALID;
+}
+
+PowerErrors GetHibernateCallbackArg(napi_env env, napi_callback_info info, napi_value& callback)
+{
+    size_t argc = HIBERNATE_CALLBACK_ARGC + 1;
+    napi_value argv[HIBERNATE_CALLBACK_ARGC + 1] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok ||
+        argc != HIBERNATE_CALLBACK_ARGC) {
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterHibernateCallback ERR_PARAM_INVALID: wrong argc");
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    napi_valuetype valueType = napi_undefined;
+    napi_value nullValue = nullptr;
+    bool isNull = false;
+    bool isArray = false;
+    if (napi_get_null(env, &nullValue) != napi_ok ||
+        napi_strict_equals(env, argv[INDEX_0], nullValue, &isNull) != napi_ok ||
+        napi_typeof(env, argv[INDEX_0], &valueType) != napi_ok ||
+        napi_is_array(env, argv[INDEX_0], &isArray) != napi_ok || valueType != napi_object || isNull || isArray) {
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterHibernateCallback ERR_PARAM_INVALID: not an object");
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    for (const char* name : HIBERNATE_METHODS) {
+        bool hasMethod = false;
+        if (napi_has_named_property(env, argv[INDEX_0], name, &hasMethod) != napi_ok || !hasMethod) {
+            POWER_HILOGE(FEATURE_SUSPEND,
+                "RegisterHibernateCallback ERR_USER_PARAM_INVALID: %{public}s missing", name);
+            return PowerErrors::ERR_USER_PARAM_INVALID;
+        }
+        napi_value method = nullptr;
+        napi_valuetype methodType = napi_undefined;
+        if (napi_get_named_property(env, argv[INDEX_0], name, &method) != napi_ok ||
+            napi_typeof(env, method, &methodType) != napi_ok || methodType != napi_function) {
+            POWER_HILOGE(FEATURE_SUSPEND,
+                "RegisterHibernateCallback ERR_PARAM_INVALID: %{public}s not a function", name);
+            return PowerErrors::ERR_PARAM_INVALID;
+        }
+    }
+    callback = argv[INDEX_0];
+    return PowerErrors::ERR_OK;
 }
 #ifdef POWER_API_METRICS_ENABLE
 constexpr int32_t HISTOGRAM_API_CALL_COUNT = 1;
@@ -892,6 +936,63 @@ napi_value PowerNapi::UnRegisterShutdownCallback(napi_env env, napi_callback_inf
         POWER_HILOGE(FEATURE_SHUTDOWN, "status=%{public}d", status);
         return result;
     }
+    return result;
+}
+
+napi_value PowerNapi::RegisterHibernateCallback(napi_env env, napi_callback_info info)
+{
+    NapiErrors errors;
+    napi_value callback = nullptr;
+    PowerErrors validationCode = GetHibernateCallbackArg(env, info, callback);
+    if (validationCode != PowerErrors::ERR_OK) {
+        return errors.ThrowError(env, validationCode);
+    }
+
+    napi_value result = nullptr;
+    napi_get_undefined(env, &result);
+
+    if (g_powerHibernateCallback == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "g_powerHibernateCallback null");
+        return result;
+    }
+    napi_ref newCallbackRef = nullptr;
+    if (napi_create_reference(env, callback, 1, &newCallbackRef) != napi_ok || newCallbackRef == nullptr) {
+        if (newCallbackRef != nullptr) {
+            napi_delete_reference(env, newCallbackRef);
+            newCallbackRef = nullptr;
+        }
+        POWER_HILOGW(FEATURE_SUSPEND, "Failed to create a JS callback reference");
+    }
+    PowerErrors code = g_powerMgrClient.RegisterSyncHibernateCallbackEx(
+        g_powerHibernateCallback, HibernateCallbackPriority::DEFAULT);
+    if (code != PowerErrors::ERR_OK) {
+        if (newCallbackRef != nullptr) {
+            napi_delete_reference(env, newCallbackRef);
+        }
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterHibernateCallback failed. code:%{public}d",
+            static_cast<int32_t>(code));
+        return errors.ThrowError(env, code);
+    }
+    g_powerHibernateCallback->ReplaceCallback(env, newCallbackRef);
+    return result;
+}
+
+napi_value PowerNapi::UnRegisterHibernateCallback(napi_env env, napi_callback_info info)
+{
+    NapiErrors errors;
+    napi_value result = nullptr;
+    napi_get_undefined(env, &result);
+    if (g_powerHibernateCallback == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "g_powerHibernateCallback null");
+        return result;
+    }
+    PowerErrors code = g_powerMgrClient.UnRegisterSyncHibernateCallbackEx(g_powerHibernateCallback);
+    if (code != PowerErrors::ERR_OK) {
+        POWER_HILOGE(FEATURE_SUSPEND, "UnRegisterHibernateCallback failed. code:%{public}d",
+            static_cast<int32_t>(code));
+        return errors.ThrowError(env, code);
+    }
+    g_powerHibernateCallback->ReleaseCallback();
     return result;
 }
 } // namespace PowerMgr

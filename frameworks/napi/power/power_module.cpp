@@ -193,7 +193,9 @@ static napi_value PowerInit(napi_env env, napi_value exports)
         DECLARE_NAPI_FUNCTION("refreshActivity", PowerNapi::RefreshActivity),
         DECLARE_NAPI_FUNCTION("setPowerKeyFilteringStrategy", PowerNapi::SetPowerKeyFilteringStrategy),
         DECLARE_NAPI_FUNCTION("registerShutdownCallback", PowerNapi::RegisterShutdownCallback),
-        DECLARE_NAPI_FUNCTION("unregisterShutdownCallback", PowerNapi::UnRegisterShutdownCallback)};
+        DECLARE_NAPI_FUNCTION("unregisterShutdownCallback", PowerNapi::UnRegisterShutdownCallback),
+        DECLARE_NAPI_FUNCTION("registerHibernateCallback", PowerNapi::RegisterHibernateCallback),
+        DECLARE_NAPI_FUNCTION("unregisterHibernateCallback", PowerNapi::UnRegisterHibernateCallback)};
     NAPI_CALL(env, napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc));
     CreateDevicePowerMode(env, exports);
     CreateDevicePowerSubMode(env, exports);

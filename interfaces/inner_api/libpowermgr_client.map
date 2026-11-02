@@ -66,6 +66,7 @@
             OHOS::PowerMgr::PowerMgrProxy::RegisterShutdownCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::RegisterSuspendTakeoverCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::RegisterSyncHibernateCallbackIpc*;
+            OHOS::PowerMgr::PowerMgrProxy::RegisterSyncHibernateCallbackExIpc*;
             OHOS::PowerMgr::PowerMgrProxy::RegisterSyncSleepCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::RegisterUlsrCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::ReleaseRunningLockIpc*;
@@ -94,6 +95,7 @@
             OHOS::PowerMgr::PowerMgrProxy::UnRegisterShutdownCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::UnRegisterSuspendTakeoverCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::UnRegisterSyncHibernateCallbackIpc*;
+            OHOS::PowerMgr::PowerMgrProxy::UnRegisterSyncHibernateCallbackExIpc*;
             OHOS::PowerMgr::PowerMgrProxy::UnRegisterSyncSleepCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::UnRegisterUlsrCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::UpdateWorkSourceIpc*;

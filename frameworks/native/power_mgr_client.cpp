@@ -198,6 +198,7 @@ PowerErrors PowerMgrClient::RebootDeviceForDeprecated(const std::string& reason)
 }
 
 namespace {
+
 // mostly copied from power_napi.cpp
 // no early return if open fd succeeded
 void StartBootTimer(bool isReboot)
@@ -621,6 +622,34 @@ bool PowerMgrClient::UnRegisterSyncHibernateCallback(const sptr<ISyncHibernateCa
     RETURN_IF_WITH_RET((callback == nullptr) || (proxy == nullptr), false);
     int32_t ret = proxy->UnRegisterSyncHibernateCallbackIpc(callback);
     return ret == ERR_OK;
+}
+
+PowerErrors PowerMgrClient::RegisterSyncHibernateCallbackEx(
+    const sptr<ISyncHibernateCallback>& callback, HibernateCallbackPriority priority)
+{
+    sptr<IPowerMgr> proxy = GetPowerMgrProxy();
+    RETURN_IF_WITH_RET(callback == nullptr, PowerErrors::ERR_PARAM_INVALID);
+    if (proxy == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "client register Ex: proxy is null");
+        return PowerErrors::ERR_CONNECTION_FAIL;
+    }
+    int32_t priorityValue = static_cast<int32_t>(priority);
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
+    proxy->RegisterSyncHibernateCallbackExIpc(callback, priorityValue, powerError);
+    return static_cast<PowerErrors>(powerError);
+}
+
+PowerErrors PowerMgrClient::UnRegisterSyncHibernateCallbackEx(const sptr<ISyncHibernateCallback>& callback)
+{
+    sptr<IPowerMgr> proxy = GetPowerMgrProxy();
+    RETURN_IF_WITH_RET(callback == nullptr, PowerErrors::ERR_PARAM_INVALID);
+    if (proxy == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "client unregister Ex: proxy is null");
+        return PowerErrors::ERR_CONNECTION_FAIL;
+    }
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
+    proxy->UnRegisterSyncHibernateCallbackExIpc(callback, powerError);
+    return static_cast<PowerErrors>(powerError);
 }
 
 bool PowerMgrClient::RegisterPowerModeCallback(const sptr<IPowerModeCallback>& callback)
