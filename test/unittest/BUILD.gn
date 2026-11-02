@@ -1169,6 +1169,64 @@ ohos_unittest("test_power_mgr_service_native") {
   }
 }
 
+##############################multi_user_screen_adapter##############################
+# Cockpit multi-screen multi-user adaptation: drives the real PowerMgrService::IsScreenOn /
+# OnAddSystemAbility / MultiScreenCallback::OnMultiScreenDisplayStateChanged /
+# MultiUserScreenAdapter query entries (IsScreenOnForUser / IsAnyScreenOn / GetDisplayIdByUserId)
+# with link-time mocks for display_manager's one-call map<displayId, state> query and OsAccountManager
+# userId<->displayId mapping. Broadcast isolation moved to display_manager, so only the query adapter
+# is exercised here. Only built when the feature flag is on (coverage of the new code path).
+ohos_unittest("test_multi_user_screen_adapter") {
+  module_out_path = module_output_path
+  defines += defs
+  defines += [
+    "POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION",
+    "DISPLAY_MANAGER_ENABLE_MULTI_SCREEN_STATE",
+    "POWER_GTEST",
+    "THERMAL_GTEST",
+  ]
+  if (has_display_manager_part) {
+    defines += [
+      "HAS_DISPLAY_MANAGER_PART",
+      "HAS_DISPLAY_MANAGER",
+    ]
+  }
+
+  sources = [
+    "src/multi_user_screen_adapter_test.cpp",
+    "src/mock/mock_display_power_mgr_client_multi_user.cpp",
+    "src/mock/mock_os_account_manager_multi_user.cpp",
+  ]
+
+  include_dirs = [
+    "${powermgr_service_path}/native/include",
+    "${powermgr_service_path}/native/src",
+  ]
+
+  configs = [
+    "${powermgr_utils_path}:utils_config",
+    ":module_private_config",
+    ":module_mock_private_config",
+    "${powermgr_utils_path}:coverage_flags",
+  ]
+
+  deps = [
+    "${powermgr_inner_api}:powermgr_client",
+    "${powermgr_inner_api}:powermgr_stub",
+    "${powermgr_service_path}:powermgrservice",
+    "${powermgr_utils_path}/ffrt:power_ffrt",
+  ]
+
+  external_deps = deps_ex
+  if (has_display_manager_part) {
+    external_deps += [
+      "display_manager:displaymgr",
+      "window_manager:libdm_lite",
+    ]
+  }
+  external_deps += [ "os_account:os_account_innerkits" ]
+}
+
 ohos_unittest("test_device_state_action_native") {
   module_out_path = module_output_path
   defines += defs
@@ -3011,6 +3069,9 @@ group("unittest") {
       ":running_lock_changed_callback_proxy_test",
       ":running_lock_changed_callback_stub_test",
     ]
+  }
+  if (power_manager_feature_multi_user_screen_adaptation) {
+    deps += [ ":test_multi_user_screen_adapter" ]
   }
 }
 

@@ -249,6 +249,12 @@ ohos_shared_library("powermgrservice") {
     defines += [ "POWER_MANAGER_ENABLE_FORCE_SUSPEND_IGNORING_WAKELOCK" ]
   }
 
+  if (power_manager_feature_multi_user_screen_adaptation) {
+    defines += [ "POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION" ]
+    sources += [ "native/src/multi_user/multi_user_screen_adapter.cpp" ]
+    external_deps += [ "os_account:os_account_innerkits" ]
+  }
+
   if (power_manager_feature_force_sleep_broadcast) {
     defines += [ "POWER_MANAGER_ENABLE_FORCE_SLEEP_BROADCAST" ]
   }

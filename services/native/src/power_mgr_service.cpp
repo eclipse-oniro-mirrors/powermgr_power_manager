@@ -74,6 +74,9 @@
 #include <dlfcn.h>
 #endif
 #include "death_recipient_manager.h"
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+#include "multi_user_screen_adapter.h"
+#endif
 
 using namespace OHOS::AppExecFwk;
 using namespace OHOS::AAFwk;
@@ -1541,11 +1544,33 @@ PowerState PowerMgrService::GetState()
 bool PowerMgrService::IsScreenOn(bool needPrintLog)
 {
     std::lock_guard lock(stateMutex_);
+#ifdef POWER_MANAGER_ENABLE_MULTI_USER_SCREEN_ADAPTATION
+    int32_t uid = static_cast<int32_t>(IPCSkeleton::GetCallingUid());
+    int32_t userId = MultiUserScreenAdapter::GetUserIdFromUid(uid);
+    if (!MultiUserScreenAdapter::IsValidUserId(userId)) {
+        POWER_HILOGW(COMP_SVC, "IsScreenOn invalid userId=%{public}d (uid=%{public}d), report screen off",
+            userId, uid);
+        return false;
+    }
+    bool isScreenOn = false;
+    if (MultiUserScreenAdapter::IsSystemAccount(userId)) {
+        // U10X caller: report its own bound display state.
+        isScreenOn = MultiUserScreenAdapter::IsScreenOnForUser(userId);
+    } else {
+        // SA / U0 caller (userId == 0): report whole-machine state (any screen on).
+        isScreenOn = MultiUserScreenAdapter::IsAnyScreenOn();
+    }
+    if (needPrintLog) {
+        POWER_HILOGD(COMP_SVC, "isScreenOn: %{public}d, uid: %{public}d", isScreenOn, uid);
+    }
+    return isScreenOn;
+#else
     auto isScreenOn = powerStateMachine_->IsScreenOn();
     if (needPrintLog) {
         POWER_HILOGD(COMP_SVC, "isScreenOn: %{public}d", isScreenOn);
     }
     return isScreenOn;
+#endif
 }
 
 bool PowerMgrService::IsFoldScreenOn()
