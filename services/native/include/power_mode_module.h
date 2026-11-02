@@ -46,6 +46,7 @@ public:
     void InitPowerMode();
     PowerErrors SetModeItem(PowerMode mode);
     PowerMode GetModeItem();
+    static bool IsPowerSaveModeDisabled(PowerMode mode);
     void EnableMode(PowerMode mode, bool isBoot = false);
     void AddPowerModeCallback(const sptr<IPowerModeCallback>& callback);
     void DelPowerModeCallback(const sptr<IPowerModeCallback>& callback);

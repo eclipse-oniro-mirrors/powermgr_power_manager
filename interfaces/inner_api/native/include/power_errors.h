@@ -26,6 +26,8 @@ enum class PowerErrors : int32_t {
     ERR_FAILURE = 1,
     ERR_PERMISSION_DENIED = 201,
     ERR_SYSTEM_API_DENIED = 202,
+    /** The function is prohibited by enterprise management policies */
+    ERR_ENTERPRISE_POLICIES_DENIED = 203,
     /** Input is null, undefined, or mismatched type (basic type validation) */
     ERR_PARAM_INVALID = 401,
     ERR_CONNECTION_FAIL = 4900101,
@@ -48,6 +50,8 @@ inline std::string GetErrorMessage(PowerErrors code)
         {PowerErrors::ERR_CONNECTION_FAIL,           "Failed to connect to the service."},
         {PowerErrors::ERR_PERMISSION_DENIED,         "Permission is denied"},
         {PowerErrors::ERR_SYSTEM_API_DENIED,         "System permission is denied"},
+        {PowerErrors::ERR_ENTERPRISE_POLICIES_DENIED,
+            "This function is prohibited by enterprise management policies."},
         {PowerErrors::ERR_PARAM_INVALID,             "Invalid input parameter."},
         {PowerErrors::ERR_FREQUENT_FUNCTION_CALL,    "Frequent function calls."},
         {PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED, "Setting the power mode failed."},
