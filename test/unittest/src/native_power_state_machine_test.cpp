@@ -1009,302 +1009,42 @@ HWTEST_F(NativePowerStateMachineTest, ScreenOffBlock004, TestSize.Level1)
 }
 
 /**
- * @tc.name: NativePowerStateMachine020
- * @tc.desc: test DisplayOffTimeUpdateFunc returns early when settingTime equals systemTime
- * @tc.type: FUNC
- */
-HWTEST_F(NativePowerStateMachineTest, NativePowerStateMachine020, TestSize.Level1)
-{
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine020 function start!");
-    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
-    pmsTest->OnStart();
-    auto stateMachine = pmsTest->GetPowerStateMachine();
-    ASSERT_NE(stateMachine, nullptr);
-
-    EXPECT_FALSE(stateMachine->isScreenOffTimeOverride_);
-
-    PowerStateMachine::DisplayOffTimeUpdateFunc();
-    EXPECT_FALSE(stateMachine->isScreenOffTimeOverride_);
-
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine020 function end!");
-}
-
-/**
- * @tc.name: NativePowerStateMachine021
- * @tc.desc: test DisplayOffTimeUpdateFunc updates displayOffTime when settingTime differs from systemTime
- * @tc.type: FUNC
- */
-HWTEST_F(NativePowerStateMachineTest, NativePowerStateMachine021, TestSize.Level1)
-{
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine021 function start!");
-    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
-    pmsTest->OnStart();
-    auto stateMachine = pmsTest->GetPowerStateMachine();
-    ASSERT_NE(stateMachine, nullptr);
-
-    EXPECT_FALSE(stateMachine->isScreenOffTimeOverride_);
-
-    constexpr int64_t ARTIFICIAL_TIME = 9999;
-    stateMachine->SetDisplayOffTime(ARTIFICIAL_TIME, false);
-    EXPECT_EQ(stateMachine->GetDisplayOffTime(), ARTIFICIAL_TIME);
-
-    PowerStateMachine::DisplayOffTimeUpdateFunc();
-    EXPECT_FALSE(stateMachine->isScreenOffTimeOverride_);
-
-    EXPECT_NE(stateMachine->GetDisplayOffTime(), ARTIFICIAL_TIME);
-
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine021 function end!");
-}
-
-/**
- * @tc.name: NativePowerStateMachine022
- * @tc.desc: test Restore recovers to latest Setting value after AC/DC switch during override
- * @tc.type: FUNC
- */
-HWTEST_F(NativePowerStateMachineTest, NativePowerStateMachine022, TestSize.Level1)
-{
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine022 function start!");
-    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
-    pmsTest->OnStart();
-    auto stateMachine = pmsTest->GetPowerStateMachine();
-    ASSERT_NE(stateMachine, nullptr);
-
-    constexpr int64_t BASE_TIME = 30000;
-    constexpr int64_t OVERRIDE_TIME = 600000;
-    stateMachine->SetDisplayOffTime(BASE_TIME, false);
-    EXPECT_EQ(stateMachine->GetDisplayOffTime(), BASE_TIME);
-
-    stateMachine->OverrideScreenOffTimeInner(OVERRIDE_TIME);
-    EXPECT_EQ(stateMachine->GetDisplayOffTime(), OVERRIDE_TIME);
-
-    PowerStateMachine::DisplayOffTimeUpdateFunc();
-    EXPECT_EQ(stateMachine->GetDisplayOffTime(), OVERRIDE_TIME);
-
-    stateMachine->RestoreScreenOffTimeInner();
-    EXPECT_FALSE(stateMachine->isScreenOffTimeOverride_);
-    int64_t restoredTime = stateMachine->GetDisplayOffTime();
-    EXPECT_NE(restoredTime, OVERRIDE_TIME);
-
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine022 function end!");
-}
-#endif // POWER_MANAGER_ENABLE_CHARGING_TYPE_SETTING
-
-/**
- * @tc.name: NativePowerStateMachine023
- * @tc.desc: test const.power.never_sleep_dim_enabled true false
- * @tc.type: FUNC
- * @tc.require: issues#1811
- */
-HWTEST_F(NativePowerStateMachineTest, NativePowerStateMachine023, TestSize.Level1)
-{
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine023 function start!");
-    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
-    pmsTest->OnStart();
-    pmsTest->SuspendControllerInit();
-    pmsTest->WakeupControllerInit();
-    auto stateMachine = pmsTest->GetPowerStateMachine();
-    bool ret = stateMachine->SetState(PowerState::AWAKE, StateChangeReason::STATE_CHANGE_REASON_BATTERY, true);
-    EXPECT_TRUE(ret);
-
-    ParamCacher::Instance().neverSleepDimEnabled_ = true; // never sleep enter dim
-    EXPECT_TRUE(ParamCacher::Instance().IsNeverSleepDimEnabled());
-    stateMachine->SetDisplayOffTime(-1, false); // never screen off
-    EXPECT_EQ(stateMachine->GetDisplayOffTime(), -1);
-    ParamCacher::Instance().activeTimeBeforeLongTimeDim_ = 1000; // dim time
-    stateMachine->ResetInactiveTimer();
-
-    auto waitDimFunc = [pmsTest]() {
-        auto pmsTimer = pmsTest->ffrtTimer_;
-        if (pmsTimer->handleMap_.find(TIMER_ID_USER_ACTIVITY_TIMEOUT) != pmsTimer->handleMap_.end() &&
-            pmsTimer->handleMap_[TIMER_ID_USER_ACTIVITY_TIMEOUT] != nullptr) {
-            pmsTest->ffrtTimer_->queue_.wait(pmsTest->ffrtTimer_->handleMap_[TIMER_ID_USER_ACTIVITY_TIMEOUT]);
-        }
-    };
-
-    auto waitInactiveFunc = [pmsTest]() {
-        auto pmsTimer = pmsTest->ffrtTimer_;
-        if (pmsTimer->handleMap_.find(TIMER_ID_USER_ACTIVITY_OFF) != pmsTimer->handleMap_.end() &&
-            pmsTimer->handleMap_[TIMER_ID_USER_ACTIVITY_OFF] != nullptr) {
-            pmsTest->ffrtTimer_->queue_.wait(pmsTest->ffrtTimer_->handleMap_[TIMER_ID_USER_ACTIVITY_OFF]);
-        }
-    };
-    waitDimFunc();
-    waitInactiveFunc();
-    EXPECT_TRUE(stateMachine->GetState() == PowerState::DIM);
-
-    stateMachine->SetState(PowerState::AWAKE, StateChangeReason::STATE_CHANGE_REASON_BATTERY, true);
-    ParamCacher::Instance().neverSleepDimEnabled_ = false; // never sleep enter dim disable
-    EXPECT_FALSE(ParamCacher::Instance().IsNeverSleepDimEnabled());
-    waitDimFunc();
-    waitInactiveFunc();
-    EXPECT_TRUE(stateMachine->GetState() == PowerState::AWAKE);
-
-    stateMachine->SetDisplayOffTime(1000, false);
-    EXPECT_EQ(stateMachine->GetDisplayOffTime(), 1000);
-    stateMachine->ResetInactiveTimer();
-    waitDimFunc();
-    waitInactiveFunc();
-    EXPECT_TRUE(stateMachine->GetState() != PowerState::AWAKE);
-    stateMachine->SetDisplayOffTime(-1, false);
-    stateMachine->SetState(PowerState::AWAKE, StateChangeReason::STATE_CHANGE_REASON_BATTERY, true);
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine023 function end!");
-}
-
-/**
- * @tc.name: NativePowerStateMachine024
- * @tc.desc: test SetDelayTimer delay -1
- * @tc.type: FUNC
- * @tc.require: issues#1811
- */
-HWTEST_F(NativePowerStateMachineTest, NativePowerStateMachine024, TestSize.Level1)
-{
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine024 function start!");
-    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
-    pmsTest->OnStart();
-    pmsTest->SuspendControllerInit();
-    pmsTest->WakeupControllerInit();
-    auto stateMachine = pmsTest->GetPowerStateMachine();
-    bool ret = stateMachine->SetState(PowerState::AWAKE, StateChangeReason::STATE_CHANGE_REASON_BATTERY, true);
-    EXPECT_TRUE(ret);
-
-    ParamCacher::Instance().neverSleepDimEnabled_ = true; // never sleep enter dim
-    EXPECT_TRUE(ParamCacher::Instance().IsNeverSleepDimEnabled());
-    stateMachine->SetDisplayOffTime(-1, false); // never screen off
-    EXPECT_EQ(stateMachine->GetDisplayOffTime(), -1);
-    ParamCacher::Instance().activeTimeBeforeLongTimeDim_ = -1; // dim time
-    stateMachine->ResetInactiveTimer();
-    auto pmsTimer = pmsTest->ffrtTimer_;
-    if (pmsTimer->handleMap_.find(TIMER_ID_USER_ACTIVITY_TIMEOUT) != pmsTimer->handleMap_.end()) {
-        EXPECT_TRUE(pmsTimer->handleMap_[TIMER_ID_USER_ACTIVITY_TIMEOUT] != nullptr);
-        EXPECT_TRUE(stateMachine->GetState() == PowerState::AWAKE);
-    }
-
-    ParamCacher::Instance().neverSleepDimEnabled_ = false;
-    stateMachine->ResetInactiveTimer();
-    if (pmsTimer->handleMap_.find(TIMER_ID_USER_ACTIVITY_TIMEOUT) != pmsTimer->handleMap_.end()) {
-        EXPECT_TRUE(pmsTimer->handleMap_[TIMER_ID_USER_ACTIVITY_TIMEOUT] == nullptr);
-        EXPECT_TRUE(stateMachine->GetState() == PowerState::AWAKE);
-    }
-    POWER_HILOGI(LABEL_TEST, "NativePowerStateMachine024 function end!");
-}
-
-/**
- * @tc.name: ScreenOffBlock001
- * @tc.desc: Test UpdateScreenOffBlock blocks and unblocks the APPLICATION reason through the real
- *           PowerStateMachine entry, and IsScreenOffBlocked reflects the registration.
+ * @tc.name: GetBundleNameFromLock001
+ * @tc.desc: Test lock name matching the window lock pattern, bundle name is extracted from the lock name.
  * @tc.type: FUNC
  * @tc.require: issueI7ZB4
  */
-HWTEST_F(NativePowerStateMachineTest, ScreenOffBlock001, TestSize.Level1)
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock001, TestSize.Level1)
 {
-    GTEST_LOG_(INFO) << "ScreenOffBlock001: start.";
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock001: start.";
     auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
     pmsTest->OnStart();
     auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
-    EXPECT_TRUE(stateMachine->Init());
-    stateMachine->InitState();
-    sptr<IRemoteObject> token = sptr<IPCObjectStub>::MakeSptr(u"ScreenOffBlock001");
-    // Before registration no reason is blocked (real entry: PowerStateMachine::IsScreenOffBlocked)
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    // Real entry: PowerStateMachine::UpdateScreenOffBlock writes the shared block map
-    stateMachine->UpdateScreenOffBlock(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE, token);
-    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    // Other reasons remain unblocked (strict map lookup, no false positives)
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::LID));
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::NONE));
-    // Unregister via the same real entry
-    stateMachine->RemoveScreenOffBlock(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE);
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    GTEST_LOG_(INFO) << "ScreenOffBlock001: end.";
+    RunningLockInfo lockInfo;
+    lockInfo.name = "com.example.app_windowLock_100_200";
+    lockInfo.bundleName = "fallback.bundle.name";
+    // Matches "^(.+)_windowLock_\d+_\d+$": returns the extracted bundle name, not the fallback
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock001: end.";
 }
 
 /**
- * @tc.name: ScreenOffBlock002
- * @tc.desc: Test per-scene isolation: blocking LID does not block APPLICATION or POWER_KEY.
+ * @tc.name: GetBundleNameFromLock002
+ * @tc.desc: Test lock name not matching the window lock pattern, fallback to lockInfo.bundleName.
  * @tc.type: FUNC
  * @tc.require: issueI7ZB4
  */
-HWTEST_F(NativePowerStateMachineTest, ScreenOffBlock002, TestSize.Level1)
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock002, TestSize.Level1)
 {
-    GTEST_LOG_(INFO) << "ScreenOffBlock002: start.";
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock002: start.";
     auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
     pmsTest->OnStart();
     auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
-    EXPECT_TRUE(stateMachine->Init());
-    stateMachine->InitState();
-    sptr<IRemoteObject> token = sptr<IPCObjectStub>::MakeSptr(u"ScreenOffBlock002");
-    stateMachine->UpdateScreenOffBlock(PowerStateMachine::ScreenOffBlockType::LID, token);
-    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::LID));
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::POWER_KEY));
-    stateMachine->RemoveScreenOffBlock(PowerStateMachine::ScreenOffBlockType::LID);
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::LID));
-    GTEST_LOG_(INFO) << "ScreenOffBlock002: end.";
-}
-
-/**
- * @tc.name: ScreenOffBlock003
- * @tc.desc: Test RemoveScreenOffBlock clears every type registered with the same token
- *           (mirrors the SA-death auto-reset callback).
- * @tc.type: FUNC
- * @tc.require: issueI7ZB4
- */
-HWTEST_F(NativePowerStateMachineTest, ScreenOffBlock003, TestSize.Level1)
-{
-    GTEST_LOG_(INFO) << "ScreenOffBlock003: start.";
-    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
-    pmsTest->OnStart();
-    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
-    EXPECT_TRUE(stateMachine->Init());
-    stateMachine->InitState();
-    sptr<IRemoteObject> token = sptr<IPCObjectStub>::MakeSptr(u"ScreenOffBlock003");
-    // Register multiple types with the same token (power key via SetPowerKeyFilteringStrategy path,
-    // lid/interface call via SetLidFilteringStrategy/SetInterfaceCallFilteringStrategy
-    // — all share the same screenOffBlockMap_
-    stateMachine->UpdateScreenOffBlock(PowerStateMachine::ScreenOffBlockType::POWER_KEY, token);
-    stateMachine->UpdateScreenOffBlock(PowerStateMachine::ScreenOffBlockType::LID, token);
-    stateMachine->UpdateScreenOffBlock(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE, token);
-    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::POWER_KEY));
-    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::LID));
-    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    // Real entry: per-type cleanup used by the death callback
-    stateMachine->RemoveScreenOffBlock(
-        PowerStateMachine::ScreenOffBlockType::POWER_KEY);
-    stateMachine->RemoveScreenOffBlock(
-        PowerStateMachine::ScreenOffBlockType::LID);
-    stateMachine->RemoveScreenOffBlock(
-        PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE);
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::POWER_KEY));
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::LID));
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    GTEST_LOG_(INFO) << "ScreenOffBlock003: end.";
-}
-
-/**
- * @tc.name: ScreenOffBlock004
- * @tc.desc: Test re-registration overwrites the previous token for the same type
- *           (new token wins), and RemoveScreenOffBlock clears the block.
- * @tc.type: FUNC
- * @tc.require: issueI7ZB4
- */
-HWTEST_F(NativePowerStateMachineTest, ScreenOffBlock004, TestSize.Level1)
-{
-    GTEST_LOG_(INFO) << "ScreenOffBlock004: start.";
-    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
-    pmsTest->OnStart();
-    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
-    EXPECT_TRUE(stateMachine->Init());
-    stateMachine->InitState();
-    sptr<IRemoteObject> tokenA = sptr<IPCObjectStub>::MakeSptr(u"ScreenOffBlock004A");
-    sptr<IRemoteObject> tokenB = sptr<IPCObjectStub>::MakeSptr(u"ScreenOffBlock004B");
-    stateMachine->UpdateScreenOffBlock(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE, tokenA);
-    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    // Re-register with a new token: the new token overwrites the old one
-    stateMachine->UpdateScreenOffBlock(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE, tokenB);
-    EXPECT_TRUE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    stateMachine->RemoveScreenOffBlock(
-        PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE);
-    EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
-    GTEST_LOG_(INFO) << "ScreenOffBlock004: end.";
+    RunningLockInfo lockInfo;
+    lockInfo.name = "running_lock_test";
+    lockInfo.bundleName = "com.example.app";
+    // Does not match "^(.+)_windowLock_\d+_\d+$": falls back to lockInfo.bundleName
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock002: end.";
 }
 } // namespace
