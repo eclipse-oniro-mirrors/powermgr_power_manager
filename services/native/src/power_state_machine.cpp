@@ -19,6 +19,7 @@
 #include <thread>
 #include <algorithm>
 #include <cinttypes>
+#include <regex>
 #include <datetime_ex.h>
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
 #include <hisysevent.h>
@@ -2901,6 +2902,16 @@ bool PowerStateMachine::IsSwitchOpenByPath()
 }
 
 #ifdef POWER_MANAGER_REPORT_SCREENOFF_INVALID
+std::string PowerStateMachine::GetBundleNameFromLock(const RunningLockInfo& lockInfo)
+{
+    static const std::regex windowLockPattern("^(.+)_windowLock_\\d+_\\d+$");
+    std::smatch matchResult;
+    if (std::regex_match(lockInfo.name, matchResult, windowLockPattern)) {
+        return matchResult[1].str();
+    }
+    return lockInfo.bundleName;
+}
+
 bool PowerStateMachine::ReportScreenOffInvalidEvent(StateChangeReason reason)
 {
     if (reason != StateChangeReason::STATE_CHANGE_REASON_HARD_KEY) {
@@ -2920,9 +2931,10 @@ bool PowerStateMachine::ReportScreenOffInvalidEvent(StateChangeReason reason)
             }
             pms->QueryRunningLockListsInner(screenOnLockLists);
             for (const auto &it : screenOnLockLists) {
+                std::string bundleName = GetBundleNameFromLock(it.second);
                 HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "SCREEN_OFF_EXCEPTION",
                     HiviewDFX::HiSysEvent::EventType::FAULT, "EXCEPTION_TYPE", SCREEN_OFF_INVALID,
-                    "PID", it.second.pid, "UID", it.second.uid, "BUNDLE_NAME", it.second.bundleName.c_str(),
+                    "PID", it.second.pid, "UID", it.second.uid, "BUNDLE_NAME", bundleName.c_str(),
                     "ABILITY_NAME", "", "WINDOW_ID", 0, "APP_BEHAVIOR", "");
             }
         }

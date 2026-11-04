@@ -1007,4 +1007,205 @@ HWTEST_F(NativePowerStateMachineTest, ScreenOffBlock004, TestSize.Level1)
     EXPECT_FALSE(stateMachine->IsScreenOffBlocked(PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE));
     GTEST_LOG_(INFO) << "ScreenOffBlock004: end.";
 }
+
+/**
+ * @tc.name: GetBundleNameFromLock001
+ * @tc.desc: Test lock name matching the window lock pattern, bundle name is extracted from the lock name.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock001: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.name = "com.example.app_windowLock_100_200";
+    lockInfo.bundleName = "fallback.bundle.name";
+    // Matches "^(.+)_windowLock_\d+_\d+$": returns the extracted bundle name, not the fallback
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock001: end.";
+}
+
+/**
+ * @tc.name: GetBundleNameFromLock002
+ * @tc.desc: Test lock name not matching the window lock pattern, fallback to lockInfo.bundleName.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock002, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock002: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.name = "running_lock_test";
+    lockInfo.bundleName = "com.example.app";
+    // Does not match "^(.+)_windowLock_\d+_\d+$": falls back to lockInfo.bundleName
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock002: end.";
+}
+
+/**
+ * @tc.name: GetBundleNameFromLock003
+ * @tc.desc: Test lock name containing multiple "_windowLock_" segments,
+ *           the greedy "^.+" captures up to the last "_windowLock_".
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock003, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock003: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.bundleName = "fallback.bundle.name";
+    lockInfo.name = "com.a_windowLock_1_2_windowLock_3_4";
+    // Greedy "^.+" captures "com.a_windowLock_1_2", the part before the last "_windowLock_"
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.a_windowLock_1_2");
+    lockInfo.name = "com.a_windowLock_1_2_extra_windowLock_3_4";
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.a_windowLock_1_2_extra");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock003: end.";
+}
+
+/**
+ * @tc.name: GetBundleNameFromLock004
+ * @tc.desc: Test lock name missing the required digits ("\d+_\d+"), falls back to lockInfo.bundleName.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock004, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock004: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.bundleName = "com.example.app";
+    lockInfo.name = "com.app_windowLock__200";
+    // First number is empty: "\d+_\d+" requires at least one digit on both sides
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "com.app_windowLock_100_";
+    // Second number is empty
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "com.app_windowLock_";
+    // Both numbers are missing
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "com.app_windowLock_1_2_3";
+    // Three number segments, no "\d+_\d+$" tail
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock004: end.";
+}
+
+/**
+ * @tc.name: GetBundleNameFromLock005
+ * @tc.desc: Test boundary of "^.+" and "$": no prefix before "_windowLock_" or
+ *           extra suffix after the digits, falls back to lockInfo.bundleName.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock005, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock005: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.bundleName = "com.example.app";
+    lockInfo.name = "_windowLock_1_2";
+    // "^.+" requires at least one character before "_windowLock_"
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "com.app_windowLock_1_2_extra";
+    // "$" requires the digits to end the string
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "com.app_windowLock_1_2_";
+    // Trailing underscore after the digits
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "windowLock_1_2";
+    // Prefix without the leading underscore separator
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock005: end.";
+}
+
+/**
+ * @tc.name: GetBundleNameFromLock006
+ * @tc.desc: Test case sensitivity of the pattern: "_WindowLock_"/"_windowlock_" do not match,
+ *           falls back to lockInfo.bundleName.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock006, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock006: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.bundleName = "com.example.app";
+    lockInfo.name = "com.app_WindowLock_1_2";
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "com.app_windowlock_1_2";
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.name = "com.app_WINDOWLOCK_1_2";
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock006: end.";
+}
+
+/**
+ * @tc.name: GetBundleNameFromLock007
+ * @tc.desc: Test empty lock name: falls back to lockInfo.bundleName, including empty bundleName.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock007, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock007: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.name = "";
+    lockInfo.bundleName = "com.example.app";
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app");
+    lockInfo.bundleName = "";
+    // Both name and bundleName are empty: fallback returns the empty bundleName
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "");
+    lockInfo.name = "   ";
+    // Blank (non-matching) name also falls back
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock007: end.";
+}
+
+/**
+ * @tc.name: GetBundleNameFromLock008
+ * @tc.desc: Test matching variants: multi-segment bundle name, leading-zero digits,
+ *           digits-only prefix and single-digit numbers.
+ * @tc.type: FUNC
+ * @tc.require: issueI7ZB4
+ */
+HWTEST_F(NativePowerStateMachineTest, GetBundleNameFromLock008, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock008: start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pmsTest->OnStart();
+    auto stateMachine = std::make_shared<PowerStateMachine>(pmsTest);
+    RunningLockInfo lockInfo;
+    lockInfo.bundleName = "fallback.bundle.name";
+    lockInfo.name = "com.example.app.v2_windowLock_001_9999";
+    // Multi-segment bundle name with dots and leading-zero digits
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.example.app.v2");
+    lockInfo.name = "12345_windowLock_1_2";
+    // Digits-only prefix still matches "^.+"
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "12345");
+    lockInfo.name = "a_windowLock_0_1";
+    // Minimal valid form: single-character prefix, single-digit numbers
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "a");
+    lockInfo.name = "com.app-hyphen_underscore_windowLock_100_200";
+    // Bundle part containing hyphens and underscores
+    EXPECT_EQ(stateMachine->GetBundleNameFromLock(lockInfo), "com.app-hyphen_underscore");
+    GTEST_LOG_(INFO) << "GetBundleNameFromLock008: end.";
+}
 } // namespace
