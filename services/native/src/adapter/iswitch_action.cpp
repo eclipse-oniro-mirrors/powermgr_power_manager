@@ -63,10 +63,7 @@ SwitchActionRet DualScreenSwitchAction::DoSwitchCloseAfterSetState()
     auto stateMachine = pms->GetPowerStateMachine();
     RETURN_IF_WITH_RET(stateMachine == nullptr, SwitchActionRet::DEFAULT);
     bool isScreenOn = pms->IsFoldScreenOn();
-    uint32_t action = stateMachine->GetSwitchAction();
-    if (action != static_cast<uint32_t>(SuspendAction::ACTION_NONE)) {
-        Rosen::DisplayManagerLite::GetInstance().SetScreenSwitchState(Rosen::ScreenClosedState::CLOSE, isScreenOn);
-    }
+    Rosen::DisplayManagerLite::GetInstance().SetScreenSwitchState(Rosen::ScreenClosedState::CLOSE, isScreenOn);
     return SwitchActionRet::DEFAULT;
 }
 

@@ -521,6 +521,13 @@ void SuspendController::SuspendWhenScreenOff(SuspendDeviceType reason, uint32_t 
     if (stateMachine_ == nullptr) {
         return;
     }
+    auto switchAction = stateMachine_->GetSwitchActionPtr();
+    if (reason == SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH && switchAction != nullptr) {
+        switchAction->HandleSwitchAction(SwitchActionType::SWITCH_CLOSE_AFTER_SET_STATE);
+        if (action == static_cast<uint32_t>(SuspendAction::ACTION_NONE)) {
+            return;
+        }
+    }
 
     POWER_HILOGI(FEATURE_SUSPEND,
         "Suspend when screen off, reason=%{public}d, action=%{public}u, "
