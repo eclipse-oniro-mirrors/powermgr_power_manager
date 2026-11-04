@@ -70,5 +70,23 @@ void ShutdownClient::UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback
     RETURN_IF(Connect() != ERR_OK);
     proxy_->UnRegisterShutdownCallbackIpc(callback);
 }
+
+void ShutdownClient::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+{
+    RETURN_IF(Connect() != ERR_OK);
+    proxy_->RegisterShutdownCallbackIpc(callback);
+}
+
+void ShutdownClient::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+{
+    RETURN_IF(Connect() != ERR_OK);
+    proxy_->UnRegisterShutdownCallbackIpc(callback);
+}
+
+void ShutdownClient::VoteShutdown(uint64_t identity)
+{
+    RETURN_IF(Connect() != ERR_OK);
+    proxy_->VoteShutdownIpc(identity);
+}
 } // namespace PowerMgr
 } // namespace OHOS

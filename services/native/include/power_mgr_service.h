@@ -192,6 +192,10 @@ public:
     void RegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority) override;
     void UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback) override;
 
+    void RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) override;
+    void UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) override;
+    void VoteShutdown(uint64_t identity) override;
+
 #ifdef POWER_MANAGER_ENABLE_EXTERNAL_SCREEN_MANAGEMENT
     void ExternalScreenInit();
     void RegisterExternalScreenListener();

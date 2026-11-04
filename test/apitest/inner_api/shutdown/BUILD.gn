@@ -136,6 +136,24 @@ ohos_unittest("sync_shutdown_callback_test") {
   module_out_path = module_output_path
 }
 
+ohos_unittest("parallel_shutdown_callback_test") {
+  sources = [ "parallel_shutdown_callback_test.cpp" ]
+  include_dirs = [ "${powermgr_framework_native}" ]
+  configs = [
+    "${powermgr_utils_path}:utils_config",
+    ":module_private_config",
+    "${powermgr_utils_path}:coverage_flags",
+  ]
+  deps = [
+    "${powermgr_inner_api}:powermgr_client",
+    "${powermgr_service_path}:powermgrservice",
+    "${powermgr_utils_path}/ffrt:power_ffrt",
+  ]
+  deps += screen_saver_deps
+  external_deps = deps_ex
+  module_out_path = module_output_path
+}
+
 ohos_unittest("shutdown_controller_test") {
   sources = [ "shutdown_controller_test.cpp" ]
   configs = [
@@ -161,6 +179,7 @@ group("unittest") {
   testonly = true
   deps = [
     ":async_shutdown_callback_test",
+    ":parallel_shutdown_callback_test",
     ":shutdown_controller_test",
     ":sync_shutdown_callback_test",
     ":takeover_shutdown_callback_test",

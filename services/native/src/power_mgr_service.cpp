@@ -2520,6 +2520,32 @@ void PowerMgrService::UnRegisterShutdownCallback(const sptr<ISyncShutdownCallbac
     shutdownController_->RemoveCallback(callback);
 }
 
+void PowerMgrService::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+{
+    RETURN_IF (callback == nullptr);
+    RETURN_IF (!Permission::IsSystem());
+
+    std::lock_guard lock(shutdownMutex_);
+    shutdownController_->AddCallback(callback);
+}
+
+void PowerMgrService::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+{
+    RETURN_IF (callback == nullptr);
+    RETURN_IF (!Permission::IsSystem());
+
+    std::lock_guard lock(shutdownMutex_);
+    shutdownController_->RemoveCallback(callback);
+}
+
+void PowerMgrService::VoteShutdown(uint64_t identity)
+{
+    RETURN_IF (!Permission::IsSystem());
+
+    std::lock_guard lock(shutdownMutex_);
+    shutdownController_->VoteCallback(identity);
+}
+
 PowerMgrService::BackgroundRunningLock::BackgroundRunningLock(std::string name, int32_t timeOutMs)
 {
     token_ = new (std::nothrow) RunningLockTokenStub();

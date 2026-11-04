@@ -95,6 +95,7 @@
             OHOS::PowerMgr::PowerMgrProxy::UnRegisterSyncSleepCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::UnRegisterUlsrCallbackIpc*;
             OHOS::PowerMgr::PowerMgrProxy::UpdateWorkSourceIpc*;
+            OHOS::PowerMgr::PowerMgrProxy::VoteShutdownIpc*;
             OHOS::PowerMgr::PowerMgrProxy::WakeupDeviceAsyncIpc*;
             OHOS::PowerMgr::PowerMgrProxy::WakeupDeviceIpc*;
             # PowerMgrProxyAsync: explicit methods (excluding delegator_)
@@ -133,6 +134,8 @@
             OHOS::PowerMgr::TakeOverShutdownCallbackStub::*;
             OHOS::PowerMgr::TakeOverShutdownCallbackProxy::OnTakeOverHibernate*;
             OHOS::PowerMgr::TakeOverShutdownCallbackProxy::OnTakeOverShutdown*;
+            OHOS::PowerMgr::ParallelShutdownCallbackStub::*;
+            OHOS::PowerMgr::ParallelShutdownCallbackProxy::OnParallelShutdownOrReboot*;
             OHOS::PowerMgr::PowerRunningLockCallbackStub::*;
             OHOS::PowerMgr::PowerRunningLockCallbackProxy::HandleRunningLockMessage*;
             OHOS::PowerMgr::RunningLockChangedCallbackStub::*;

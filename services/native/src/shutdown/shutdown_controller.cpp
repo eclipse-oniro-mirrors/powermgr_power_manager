@@ -71,6 +71,7 @@ ShutdownController::ShutdownController() : started_(false)
     takeoverShutdownCallbackHolder_ = new ShutdownCallbackHolder();
     asyncShutdownCallbackHolder_ = new ShutdownCallbackHolder();
     syncShutdownCallbackHolder_ = new ShutdownCallbackHolder();
+    parallelShutdownCallbackHolder_ = new ShutdownCallbackHolder();
 }
 
 PowerErrors ShutdownController::Reboot(const std::string& reason, bool force)
@@ -163,13 +164,18 @@ PowerErrors ShutdownController::RebootOrShutdown(const std::string& reason, bool
     if (force) {
         // only two threads are allowed, next time it blocks
         // either block or thread leak. since the previous action is shutdown, block is safer than thread leak
-        g_futForSyncCb = async(launch::async, &ShutdownController::TriggerSyncShutdownCallback, this, isReboot);
+        TriggerParallelShutdownCallback(isReboot);
+        g_futForSyncCb = async(launch::async, [this, isReboot] {
+            TriggerSyncShutdownCallback(isReboot);
+            OnSerialDone();
+        });
         g_futForSyncCb.wait_for(CALLBACK_TIMEOUT);
         actionTimeStr = actionTimeStr + "," + std::to_string(GetCurrentRealTimeMs());
         g_futForOff = async(launch::async, &ShutdownController::TurnOffScreen, this);
         g_futForOff.wait_for(OFF_TIMEOUT);
     } else {
-        TriggerSyncShutdownCallback(isReboot);
+        TriggerParallelShutdownCallback(isReboot);
+        DispatchSerialShutdownCallback(isReboot);
         actionTimeStr = actionTimeStr + "," + std::to_string(GetCurrentRealTimeMs());
         TurnOffScreen();
     }
@@ -198,12 +204,19 @@ void ShutdownController::Prepare(bool isReboot)
     future<void> fut = callbackTask.get_future();
     make_unique<thread>(std::move(callbackTask))->detach();
 
-    POWER_KHILOGI(FEATURE_SHUTDOWN, "Waiting for the callback execution complete...");
-    future_status status = fut.wait_for(std::chrono::seconds(MAX_TIMEOUT_SEC));
+    POWER_KHILOGI(FEATURE_SHUTDOWN, "Waiting for parallel done and serial done...");
+    bool allDone = completionTracker_.WaitForBoth(std::chrono::seconds(MAX_TIMEOUT_SEC));
+
+    future_status status = fut.wait_for(std::chrono::seconds(0));
     if (status == future_status::timeout) {
-        POWER_HILOGW(FEATURE_SHUTDOWN, "Shutdown callback execution timeout");
+        POWER_HILOGW(FEATURE_SHUTDOWN, "Shutdown async callback execution timeout");
     }
-    POWER_KHILOGI(FEATURE_SHUTDOWN, "The callback execution is complete");
+    if (!allDone) {
+        POWER_HILOGW(FEATURE_SHUTDOWN, "Shutdown wait timeout, parallelDone=%{public}d, serialDone=%{public}d",
+            completionTracker_.IsParallelDone(), completionTracker_.IsSerialDone());
+    }
+    POWER_KHILOGI(FEATURE_SHUTDOWN, "Shutdown callbacks complete, parallelDone=%{public}d, serialDone=%{public}d",
+        completionTracker_.IsParallelDone(), completionTracker_.IsSerialDone());
 }
 
 void ShutdownController::PublishShutdownEvent() const
@@ -285,6 +298,50 @@ void ShutdownController::RemoveCallback(const sptr<ISyncShutdownCallback>& callb
     syncShutdownCallbackHolder_->RemoveCallback(callback->AsObject());
     POWER_HILOGI(FEATURE_SHUTDOWN, "sync shutdown callback removed, pid=%{public}d, uid=%{public}d",
         IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+}
+
+void ShutdownController::AddCallback(const sptr<IParallelShutdownCallback>& callback)
+{
+    RETURN_IF(callback->AsObject() == nullptr)
+    parallelShutdownCallbackHolder_->AddCallback(callback->AsObject(), ShutdownPriority::DEFAULT);
+    POWER_HILOGI(FEATURE_SHUTDOWN,
+        "parallel shutdown callback added, pid=%{public}d, uid=%{public}d",
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+}
+
+void ShutdownController::RemoveCallback(const sptr<IParallelShutdownCallback>& callback)
+{
+    RETURN_IF(callback->AsObject() == nullptr)
+    parallelShutdownCallbackHolder_->RemoveCallback(callback->AsObject());
+    POWER_HILOGI(FEATURE_SHUTDOWN, "parallel shutdown callback removed, pid=%{public}d, uid=%{public}d",
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+}
+
+void ShutdownController::VoteCallback(uint64_t identity)
+{
+    POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel shutdown vote received, identity=%{public}" PRIu64 ", pid=%{public}d",
+        identity, IPCSkeleton::GetCallingPid());
+    bool found = false;
+    {
+        std::lock_guard<std::mutex> lock(identityMutex_);
+        auto it = identityMap_.find(identity);
+        if (it != identityMap_.end()) {
+            identityMap_.erase(it);
+            found = true;
+        }
+    }
+    if (found) {
+        int32_t remaining = --pendingVoteCount_;
+        if (remaining <= 0) {
+            POWER_KHILOGI(FEATURE_SHUTDOWN, "All parallel votes received, marking parallelDone");
+            completionTracker_.MarkParallelDone();
+        } else {
+            POWER_HILOGI(FEATURE_SHUTDOWN, "Vote accepted, remaining=%{public}d", remaining);
+        }
+    } else {
+        POWER_HILOGW(FEATURE_SHUTDOWN, "Vote from unregistered or already-voted callback, identity=%{public}" PRIu64,
+            identity);
+    }
 }
 
 bool ShutdownController::TriggerTakeOverShutdownCallback(const TakeOverInfo& info)
@@ -446,6 +503,93 @@ void ShutdownController::TriggerSyncShutdownCallbackInner(std::set<sptr<IRemoteO
                 "ISUTcb P=%{public}dU=%{public}dT=%{public}" PRId64 "", pidUid.first, pidUid.second, cost);
         }
     }
+}
+
+void ShutdownController::TriggerParallelShutdownCallback(bool isReboot)
+{
+    auto allCallbacks = parallelShutdownCallbackHolder_->GetDefaultPriorityCallbacks();
+    completionTracker_.Reset();
+    {
+        std::lock_guard<std::mutex> lock(identityMutex_);
+        identityMap_.clear();
+        for (const auto& obj : allCallbacks) {
+            uint64_t identity = std::hash<IRemoteObject*>{}(obj.GetRefPtr());
+            auto callback = iface_cast<IParallelShutdownCallback>(obj);
+            if (callback != nullptr) {
+                identityMap_[identity] = callback;
+            }
+        }
+        pendingVoteCount_ = static_cast<int32_t>(identityMap_.size());
+    }
+    POWER_KHILOGI(FEATURE_SHUTDOWN, "TriggerParallelShutdownCallback count=%{public}zu", allCallbacks.size());
+    TriggerParallelShutdownCallbackInner(allCallbacks, isReboot);
+    if (pendingVoteCount_.load() == 0) {
+        completionTracker_.MarkParallelDone();
+    }
+}
+
+void ShutdownController::TriggerParallelShutdownCallbackInner(
+    std::set<sptr<IRemoteObject>>& callbacks, bool isReboot)
+{
+    for (const auto& obj : callbacks) {
+        auto pidUid = parallelShutdownCallbackHolder_->FindCallbackPidUid(obj);
+        sptr<IParallelShutdownCallback> callback = iface_cast<IParallelShutdownCallback>(obj);
+        if (callback != nullptr) {
+            uint64_t identity = std::hash<IRemoteObject*>{}(obj.GetRefPtr());
+            int64_t start = GetTickCount();
+            POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel Shutdown Callback pid=%{public}d, identity=%{public}" PRIu64,
+                pidUid.first, identity);
+            callback->OnParallelShutdownOrReboot(isReboot, identity);
+            int64_t cost = GetTickCount() - start;
+            POWER_KHILOGI(FEATURE_SHUTDOWN,
+                "PAScb P=%{public}dU=%{public}dT=%{public}" PRId64 "", pidUid.first, pidUid.second, cost);
+        }
+    }
+}
+
+void ShutdownController::CompletionTracker::Reset()
+{
+    parallelDone_ = false;
+    serialDone_ = false;
+}
+
+void ShutdownController::CompletionTracker::MarkParallelDone()
+{
+    parallelDone_ = true;
+    std::lock_guard<std::mutex> lock(mutex_);
+    cv_.notify_one();
+    POWER_HILOGI(FEATURE_SHUTDOWN, "parallelDone set, notify");
+}
+
+void ShutdownController::CompletionTracker::MarkSerialDone()
+{
+    serialDone_ = true;
+    std::lock_guard<std::mutex> lock(mutex_);
+    cv_.notify_one();
+    POWER_HILOGI(FEATURE_SHUTDOWN, "serialDone set, notify");
+}
+
+bool ShutdownController::CompletionTracker::WaitForBoth(std::chrono::seconds timeout)
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    bool result = cv_.wait_for(lock, timeout, [this] {
+        return parallelDone_.load() && serialDone_.load();
+    });
+    return result;
+}
+
+void ShutdownController::DispatchSerialShutdownCallback(bool isReboot)
+{
+    g_futForSyncCb = async(launch::async, [this, isReboot] {
+        TriggerSyncShutdownCallback(isReboot);
+        OnSerialDone();
+    });
+}
+
+void ShutdownController::OnSerialDone()
+{
+    POWER_KHILOGI(FEATURE_SHUTDOWN, "Serial callbacks done, marking serialDone");
+    completionTracker_.MarkSerialDone();
 }
 
 bool ShutdownController::TakeOverShutdownAction(const std::string& reason, bool isReboot)
