@@ -141,6 +141,7 @@ ohos_unittest("test_proximity_running_lock") {
     cfi = true
     cfi_cross_dso = true
     debug = false
+    blocklist = "../../../../cfi_blocklist.txt"
   }
   sources = [
     "proximity_controller_base_test.cpp",
