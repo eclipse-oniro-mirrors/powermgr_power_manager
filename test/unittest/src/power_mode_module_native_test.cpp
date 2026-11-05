@@ -199,4 +199,158 @@ HWTEST_F (PowerModeModuleNativeTest, PowerModePolicyNativeTest001, TestSize.Leve
     POWER_HILOGI(LABEL_TEST, "PowerModePolicyNativeTest001 function end!");
     GTEST_LOG_(INFO) << "PowerModePolicyNativeTest001 end.";
 }
+
+/**
+ * @tc.name: SetModeAndSubModeItem_001
+ * @tc.desc: Test SetModeAndSubModeItem valid/invalid/same-mode-switch
+ * @tc.type: FUNC
+ */
+HWTEST_F (PowerModeModuleNativeTest, SetModeAndSubModeItem_001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "SetModeAndSubModeItem_001 start.";
+    shared_ptr<PowerModeModule> module = make_shared<PowerModeModule>();
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_INVALID);
+    PowerErrors ret = module->SetModeAndSubModeItem(
+        PowerMode::EXTREME_POWER_SAVE_MODE, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    EXPECT_EQ(module->GetModeItem(), PowerMode::EXTREME_POWER_SAVE_MODE);
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    ret = module->SetModeAndSubModeItem(
+        PowerMode::EXTREME_POWER_SAVE_MODE, PowerSubMode::SUB_MODE_EMERGENCY);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_EMERGENCY);
+    PowerSubMode invalidSubMode = static_cast<PowerSubMode>(999);
+    ret = module->SetModeAndSubModeItem(PowerMode::EXTREME_POWER_SAVE_MODE, invalidSubMode);
+    EXPECT_EQ(ret, PowerErrors::ERR_PARAM_INVALID);
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_EMERGENCY);
+    GTEST_LOG_(INFO) << "SetModeAndSubModeItem_001 end.";
+}
+
+/**
+ * @tc.name: SetModeItem_ForbidTransit_001
+ * @tc.desc: Test SetModeItem forbidMap and subMode reset on leaving 603
+ * @tc.type: FUNC
+ */
+HWTEST_F (PowerModeModuleNativeTest, SetModeItem_ForbidTransit_001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "SetModeItem_ForbidTransit_001 start.";
+    shared_ptr<PowerModeModule> module = make_shared<PowerModeModule>();
+    module->mode_ = PowerMode::EXTREME_POWER_SAVE_MODE;
+    module->subMode_ = PowerSubMode::SUB_MODE_SUPER_POWER_SAVE;
+    PowerErrors ret = module->SetModeItem(PowerMode::PERFORMANCE_MODE);
+    EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    module->mode_ = PowerMode::EXTREME_POWER_SAVE_MODE;
+    module->subMode_ = PowerSubMode::SUB_MODE_SUPER_POWER_SAVE;
+    ret = module->SetModeItem(PowerMode::NORMAL_MODE);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_INVALID);
+    GTEST_LOG_(INFO) << "SetModeItem_ForbidTransit_001 end.";
+}
+
+/**
+ * @tc.name: GetDeviceSubMode_001
+ * @tc.desc: Test GetDeviceSubMode query and PublishPowerModeEvent subMode
+ * @tc.type: FUNC
+ */
+HWTEST_F (PowerModeModuleNativeTest, GetDeviceSubMode_001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "GetDeviceSubMode_001 start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    auto& module = pmsTest->GetPowerModeModule();
+    module.mode_ = PowerMode::EXTREME_POWER_SAVE_MODE;
+    module.subMode_ = PowerSubMode::SUB_MODE_SUPER_POWER_SAVE;
+    PowerSubMode subMode = pmsTest->GetDeviceSubMode();
+    EXPECT_EQ(subMode, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    module.mode_ = PowerMode::NORMAL_MODE;
+    module.subMode_ = PowerSubMode::SUB_MODE_INVALID;
+    module.PublishPowerModeEvent();
+    EXPECT_EQ(module.GetModeItem(), PowerMode::NORMAL_MODE);
+    EXPECT_EQ(module.GetSubModeItem(), PowerSubMode::SUB_MODE_INVALID);
+    module.mode_ = PowerMode::EXTREME_POWER_SAVE_MODE;
+    module.PublishPowerModeEvent();
+    EXPECT_EQ(module.GetModeItem(), PowerMode::EXTREME_POWER_SAVE_MODE);
+    GTEST_LOG_(INFO) << "GetDeviceSubMode_001 end.";
+}
+
+/**
+ * @tc.name: SetDeviceMode_001
+ * @tc.desc: Test SetDeviceMode permission and association validation
+ * @tc.type: FUNC
+ */
+HWTEST_F (PowerModeModuleNativeTest, SetDeviceMode_001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "SetDeviceMode_001 start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    auto& module = pmsTest->GetPowerModeModule();
+    module.mode_ = PowerMode::NORMAL_MODE;
+    PowerErrors ret = pmsTest->SetDeviceMode(
+        PowerMode::NORMAL_MODE, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
+    ret = pmsTest->SetDeviceMode(
+        PowerMode::NORMAL_MODE, PowerSubMode::SUB_MODE_EMERGENCY);
+    EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
+    PowerSubMode invalidSubMode = static_cast<PowerSubMode>(999);
+    ret = pmsTest->SetDeviceMode(
+        PowerMode::EXTREME_POWER_SAVE_MODE, invalidSubMode);
+    EXPECT_EQ(ret, PowerErrors::ERR_PARAM_INVALID);
+    ret = pmsTest->SetDeviceMode(
+        PowerMode::EXTREME_POWER_SAVE_MODE, PowerSubMode::SUB_MODE_INVALID);
+    EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
+    ret = pmsTest->SetDeviceMode(
+        PowerMode::NORMAL_MODE, PowerSubMode::SUB_MODE_INVALID);
+    EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
+    ret = pmsTest->SetDeviceMode(
+        PowerMode::EXTREME_POWER_SAVE_MODE, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    EXPECT_EQ(module.GetSubModeItem(), PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    GTEST_LOG_(INFO) << "SetDeviceMode_001 end.";
+}
+
+/**
+ * @tc.name: SetDeviceMode_002
+ * @tc.desc: Test SetDeviceMode (old API) resets subMode correctly
+ * @tc.type: FUNC
+ */
+HWTEST_F (PowerModeModuleNativeTest, SetDeviceMode_002, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "SetDeviceMode_002 start.";
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    auto& module = pmsTest->GetPowerModeModule();
+    module.mode_ = PowerMode::NORMAL_MODE;
+    module.subMode_ = PowerSubMode::SUB_MODE_INVALID;
+    PowerErrors ret = pmsTest->SetDeviceMode(PowerMode::EXTREME_POWER_SAVE_MODE);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    EXPECT_EQ(module.GetModeItem(), PowerMode::EXTREME_POWER_SAVE_MODE);
+    EXPECT_EQ(module.GetSubModeItem(), PowerSubMode::SUB_MODE_EMERGENCY);
+    ret = pmsTest->SetDeviceMode(PowerMode::NORMAL_MODE);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    EXPECT_EQ(module.GetModeItem(), PowerMode::NORMAL_MODE);
+    EXPECT_EQ(module.GetSubModeItem(), PowerSubMode::SUB_MODE_INVALID);
+    GTEST_LOG_(INFO) << "SetDeviceMode_002 end.";
+}
+
+/**
+ * @tc.name: SetModeAndSubModeItem_002
+ * @tc.desc: Test same-mode subMode switch and rollback on failure
+ * @tc.type: FUNC
+ */
+HWTEST_F (PowerModeModuleNativeTest, SetModeAndSubModeItem_002, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "SetModeAndSubModeItem_002 start.";
+    shared_ptr<PowerModeModule> module = make_shared<PowerModeModule>();
+    module->mode_ = PowerMode::EXTREME_POWER_SAVE_MODE;
+    module->subMode_ = PowerSubMode::SUB_MODE_SUPER_POWER_SAVE;
+    PowerErrors ret = module->SetModeAndSubModeItem(
+        PowerMode::EXTREME_POWER_SAVE_MODE, PowerSubMode::SUB_MODE_EMERGENCY);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_EMERGENCY);
+    module->mode_ = PowerMode::EXTREME_POWER_SAVE_MODE;
+    module->subMode_ = PowerSubMode::SUB_MODE_EMERGENCY;
+    ret = module->SetModeAndSubModeItem(
+        PowerMode::PERFORMANCE_MODE, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
+    EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
+    EXPECT_EQ(module->GetSubModeItem(), PowerSubMode::SUB_MODE_EMERGENCY);
+    GTEST_LOG_(INFO) << "SetModeAndSubModeItem_002 end.";
+}
 }

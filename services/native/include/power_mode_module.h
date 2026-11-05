@@ -46,6 +46,8 @@ public:
     void InitPowerMode();
     PowerErrors SetModeItem(PowerMode mode);
     PowerMode GetModeItem();
+    PowerErrors SetModeAndSubModeItem(PowerMode mode, PowerSubMode subMode);
+    PowerSubMode GetSubModeItem();
     static bool IsPowerSaveModeDisabled(PowerMode mode);
     void EnableMode(PowerMode mode, bool isBoot = false);
     void AddPowerModeCallback(const sptr<IPowerModeCallback>& callback);
@@ -79,6 +81,7 @@ private:
     };
 
     PowerMode mode_;
+    PowerSubMode subMode_ = PowerSubMode::SUB_MODE_INVALID;
     uint32_t lastMode_;
     bool observerRegisted_ = false;
     std::map<PowerMode, std::set<PowerMode>> forbidMap_;

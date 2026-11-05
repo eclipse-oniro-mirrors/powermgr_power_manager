@@ -100,6 +100,8 @@ public:
     static void UnregisterSettingWakeupPickupObserver();
     static void SaveCurrentMode(int32_t mode);
     static int32_t ReadCurrentMode(int32_t defaultMode);
+    static void SaveCurrentSubMode(int32_t subMode);
+    static int32_t ReadCurrentSubMode(int32_t defaultSubMode);
     static const std::string ReadPowerModeRecoverMap();
     static void SavePowerModeRecoverMap(const std::string &jsonConfig);
     static void RegisterSettingPowerModeObserver(SettingObserver::UpdateFunc& func);
@@ -162,6 +164,7 @@ private:
     static constexpr const char* SETTING_POWER_WAKEUP_PICKUP_KEY {"settings.power.wakeup_pick_up"};
     static constexpr const char* SETTING_POWER_MODE_KEY {"settings.power.smart_mode_status"};
     static constexpr const char* SETTING_POWER_MODE_BACKUP_KEY {"settings.power.smart_mode_status.backup"};
+    static constexpr const char* SETTING_POWER_SUB_MODE_KEY {"settings.power.sub_mode_status"};
     static constexpr const char* SETTING_POWER_WAKEUP_LID_KEY {"settings.power.wakeup_lid"};
     static constexpr const char* SETTING_DURING_CALL_STATE_KEY {"during_call_state"};
 #ifdef POWER_MANAGER_SCREEN_SAVER

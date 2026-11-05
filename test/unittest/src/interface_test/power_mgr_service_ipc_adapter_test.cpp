@@ -219,6 +219,14 @@ public:
     {
         return PowerMode::NORMAL_MODE;
     }
+    PowerErrors SetDeviceMode(const PowerMode& mode, const PowerSubMode& subMode)
+    {
+        return PowerErrors::ERR_OK;
+    }
+    PowerSubMode GetDeviceSubMode()
+    {
+        return PowerSubMode::SUB_MODE_EMERGENCY;
+    }
     std::string ShellDump(const std::vector<std::string>& args, uint32_t argc)
     {
         return "";
@@ -598,5 +606,38 @@ HWTEST_F(PowerMgrServiceIpcAdapterTest, PowerMgrServiceIpcAdapter014, TestSize.L
     result = adapter->InterruptForceSuspendIpc();
     EXPECT_EQ(result, static_cast<int32_t>(PowerErrors::ERR_OK));
     POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter014 function end!");
+}
+
+/**
+ * @tc.name: PowerMgrServiceIpcAdapter015
+ * @tc.desc: test SetDeviceSubModeIpc dispatches to SetDeviceMode
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerMgrServiceIpcAdapterTest, PowerMgrServiceIpcAdapter015, TestSize.Level2) {
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter015 function start!");
+    auto adapter = DelayedSpSingleton<TestPowerMgrServiceAdapter>::GetInstance();
+    int32_t powerError = -1;
+    int32_t ret = adapter->SetDeviceSubModeIpc(
+        static_cast<int32_t>(PowerMode::EXTREME_POWER_SAVE_MODE),
+        static_cast<int32_t>(PowerSubMode::SUB_MODE_SUPER_POWER_SAVE),
+        powerError);
+    EXPECT_EQ(ret, ERR_OK);
+    EXPECT_EQ(powerError, static_cast<int32_t>(PowerErrors::ERR_OK));
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter015 function end!");
+}
+
+/**
+ * @tc.name: PowerMgrServiceIpcAdapter016
+ * @tc.desc: test GetDeviceSubModeIpc returns subMode
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerMgrServiceIpcAdapterTest, PowerMgrServiceIpcAdapter016, TestSize.Level2) {
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter016 function start!");
+    auto adapter = DelayedSpSingleton<TestPowerMgrServiceAdapter>::GetInstance();
+    int32_t powerSubMode = -1;
+    int32_t ret = adapter->GetDeviceSubModeIpc(powerSubMode);
+    EXPECT_EQ(ret, ERR_OK);
+    EXPECT_EQ(powerSubMode, static_cast<int32_t>(PowerSubMode::SUB_MODE_EMERGENCY));
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter016 function end!");
 }
 }

@@ -154,6 +154,38 @@ void SetPowerModeSync(DevicePowerMode mode)
     }
 }
 
+DevicePowerSubMode GetPowerSubMode()
+{
+    PowerSubMode subMode = g_powerMgrClient.GetDeviceSubMode();
+    DevicePowerSubMode result = DevicePowerSubMode::key_t::SUB_MODE_INVALID;
+    switch (subMode) {
+        case PowerSubMode::SUB_MODE_INVALID:
+            result = DevicePowerSubMode::key_t::SUB_MODE_INVALID;
+            break;
+        case PowerSubMode::SUB_MODE_SUPER_POWER_SAVE:
+            result = DevicePowerSubMode::key_t::SUB_MODE_SUPER_POWER_SAVE;
+            break;
+        case PowerSubMode::SUB_MODE_EMERGENCY:
+            result = DevicePowerSubMode::key_t::SUB_MODE_EMERGENCY;
+            break;
+        default:
+            POWER_HILOGE(FEATURE_POWER_MODE, "Unknown sub mode");
+    }
+    POWER_HILOGD(FEATURE_POWER_MODE, "GetPowerSubMode subMode: %{public}d",
+        static_cast<int32_t>(subMode));
+    return result;
+}
+
+void SetPowerSubModeSync(DevicePowerMode mode, DevicePowerSubMode subMode)
+{
+    PowerMode powerMode = PowerMode(static_cast<uint32_t>(mode));
+    PowerSubMode powerSubMode = PowerSubMode(static_cast<int32_t>(subMode));
+    PowerErrors code = g_powerMgrClient.SetDeviceMode(powerMode, powerSubMode);
+    if (code != PowerErrors::ERR_OK && code != PowerErrors::ERR_FAILURE) {
+        taihe::set_business_error(static_cast<int32_t>(code), GetErrorMessage(code));
+    }
+}
+
 bool IsStandby()
 {
     bool isStandby = false;
@@ -281,6 +313,8 @@ TH_EXPORT_CPP_API_Wakeup(Wakeup);
 TH_EXPORT_CPP_API_Suspend(Suspend);
 TH_EXPORT_CPP_API_GetPowerMode(GetPowerMode);
 TH_EXPORT_CPP_API_SetPowerModeSync(SetPowerModeSync);
+TH_EXPORT_CPP_API_GetPowerSubMode(GetPowerSubMode);
+TH_EXPORT_CPP_API_SetPowerSubModeSync(SetPowerSubModeSync);
 TH_EXPORT_CPP_API_IsStandby(IsStandby);
 TH_EXPORT_CPP_API_Hibernate(Hibernate);
 TH_EXPORT_CPP_API_SetScreenOffTime(SetScreenOffTime);

@@ -32,9 +32,14 @@ function Suspend(isImmediate: Optional<bool>): void;
 
 function GetPowerMode(): DevicePowerMode;
 
-@gen_async("setPowerMode")
-@gen_promise("setPowerMode")
-function SetPowerModeSync(mode: DevicePowerMode): void;
+ @gen_async("setPowerMode")
+ @gen_promise("setPowerMode")
+ function SetPowerModeSync(mode: DevicePowerMode): void;
+
+ function GetPowerSubMode(): DevicePowerSubMode;
+
+ @gen_promise("setPowerMode")
+ function SetPowerSubModeSync(mode: DevicePowerMode, subMode: DevicePowerSubMode): void;
 
 function IsStandby(): bool;
 
@@ -60,6 +65,12 @@ enum DevicePowerMode : i32 {
   MODE_PERFORMANCE,
   MODE_EXTREME_POWER_SAVE,
   MODE_CUSTOM_POWER_SAVE = 650
+}
+
+enum DevicePowerSubMode : i32 {
+  SUB_MODE_INVALID = -1,
+  SUB_MODE_SUPER_POWER_SAVE = 603001,
+  SUB_MODE_EMERGENCY = 603002
 }
 
 enum PowerKeyFilteringStrategy : i32 {

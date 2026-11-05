@@ -66,6 +66,13 @@ void AsyncCallbackInfo::AsyncData::SetMode(napi_env& env, napi_value& mode)
     powerMode_ = static_cast<PowerMode>(result);
 }
 
+void AsyncCallbackInfo::AsyncData::SetSubMode(napi_env& env, napi_value& subMode)
+{
+    uint32_t result;
+    napi_get_value_uint32(env, subMode, &result);
+    powerSubMode_ = static_cast<PowerSubMode>(result);
+}
+
 void AsyncCallbackInfo::AsyncData::SetType(napi_env& env, napi_value& type)
 {
     int32_t result;

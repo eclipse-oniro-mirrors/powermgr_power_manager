@@ -50,6 +50,8 @@ public:
     static napi_value Hibernate(napi_env env, napi_callback_info info);
     static napi_value SetPowerMode(napi_env env, napi_callback_info info);
     static napi_value GetPowerMode(napi_env env, napi_callback_info info);
+    static napi_value SetPowerSubMode(napi_env env, napi_callback_info info);
+    static napi_value GetPowerSubMode(napi_env env, napi_callback_info info);
     static napi_value GetPowerConfig(napi_env env, napi_callback_info info);
     static napi_value SetPowerConfig(napi_env env, napi_callback_info info);
     static napi_value IsStandby(napi_env env, napi_callback_info info);
@@ -65,6 +67,8 @@ private:
         napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo);
     static napi_value SetPowerModePromise(
         napi_env& env, napi_value argv[], std::unique_ptr<AsyncCallbackInfo>& asyncInfo);
+    static napi_value SetPowerSubModePromise(
+        napi_env& env, std::unique_ptr<AsyncCallbackInfo>& asyncInfo);
     static void AsyncWork(napi_env& env, std::unique_ptr<AsyncCallbackInfo>& asyncInfo, const std::string& resourceName,
         napi_async_execute_callback execute, napi_async_complete_callback complete);
 };

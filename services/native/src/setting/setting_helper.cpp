@@ -563,6 +563,16 @@ int32_t SettingHelper::ReadCurrentMode(int32_t defaultMode)
     return GetSettingIntValueWithRetry(SETTING_POWER_MODE_KEY, defaultMode);
 }
 
+void SettingHelper::SaveCurrentSubMode(int32_t subMode)
+{
+    SetSettingIntValue(SETTING_POWER_SUB_MODE_KEY, subMode);
+}
+
+int32_t SettingHelper::ReadCurrentSubMode(int32_t defaultSubMode)
+{
+    return GetSettingIntValueWithRetry(SETTING_POWER_SUB_MODE_KEY, defaultSubMode);
+}
+
 void SettingHelper::RegisterSettingPowerModeObserver(SettingObserver::UpdateFunc& func)
 {
     if (powerModeObserver_) {

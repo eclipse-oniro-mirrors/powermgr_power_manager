@@ -456,6 +456,22 @@ int32_t PowerMgrServiceAdapter::GetDeviceModeIpc(int32_t& powerMode)
     return ERR_OK;
 }
 
+int32_t PowerMgrServiceAdapter::SetDeviceSubModeIpc(int32_t modeValue, int32_t subModeValue, int32_t& powerError)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::SetDeviceMode", false);
+    PowerMode mode = static_cast<PowerMode>(modeValue);
+    PowerSubMode subMode = static_cast<PowerSubMode>(subModeValue);
+    powerError = static_cast<int32_t>(SetDeviceMode(mode, subMode));
+    return ERR_OK;
+}
+
+int32_t PowerMgrServiceAdapter::GetDeviceSubModeIpc(int32_t& powerSubMode)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::GetDeviceSubMode", false);
+    powerSubMode = static_cast<int32_t>(GetDeviceSubMode());
+    return ERR_OK;
+}
+
 int32_t PowerMgrServiceAdapter::ShellDumpIpc(
     const std::vector<std::string>& args, uint32_t argc, std::string& returnDump)
 {

@@ -52,6 +52,11 @@ public:
         {
             return powerMode_;
         }
+        void SetSubMode(napi_env& env, napi_value& subMode);
+        inline PowerSubMode GetSubMode() const
+        {
+            return powerSubMode_;
+        }
         // runninglock
         void SetType(napi_env& env, napi_value& type);
         void SetName(napi_env& env, napi_value& name);
@@ -65,6 +70,7 @@ public:
     private:
         // power
         PowerMode powerMode_ = PowerMode::NORMAL_MODE;
+        PowerSubMode powerSubMode_ = PowerSubMode::SUB_MODE_EMERGENCY;
         // runninglock
         RunningLockType type_ = RunningLockType::RUNNINGLOCK_BUTT;
         std::string name_;

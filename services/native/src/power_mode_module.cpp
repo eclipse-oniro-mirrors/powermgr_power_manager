@@ -83,6 +83,17 @@ void PowerModeModule::InitPowerMode()
         POWER_KHILOGI(FEATURE_POWER_MODE, "Start to init power mode.");
         int32_t saveMode = SettingHelper::ReadCurrentMode(LAST_MODE_FLAG);
         this->mode_ = (saveMode == LAST_MODE_FLAG ? PowerMode::NORMAL_MODE : static_cast<PowerMode>(saveMode));
+        int32_t saveSubMode = SettingHelper::ReadCurrentSubMode(
+            static_cast<int32_t>(PowerSubMode::SUB_MODE_EMERGENCY));
+        if (saveSubMode != static_cast<int32_t>(PowerSubMode::SUB_MODE_INVALID) &&
+            saveSubMode != static_cast<int32_t>(PowerSubMode::SUB_MODE_SUPER_POWER_SAVE) &&
+            saveSubMode != static_cast<int32_t>(PowerSubMode::SUB_MODE_EMERGENCY)) {
+            saveSubMode = static_cast<int32_t>(PowerSubMode::SUB_MODE_EMERGENCY);
+        }
+        if (this->mode_ != PowerMode::EXTREME_POWER_SAVE_MODE) {
+            saveSubMode = static_cast<int32_t>(PowerSubMode::SUB_MODE_INVALID);
+        }
+        this->subMode_ = static_cast<PowerSubMode>(saveSubMode);
         Prepare();
         if (!DelayedSingleton<PowerModePolicy>::GetInstance()->InitRecoverMap()) {
             UpdateModepolicy();
@@ -169,6 +180,11 @@ PowerErrors PowerModeModule::SetModeItem(PowerMode mode)
     /* unregister setting observer for current mode */
     UnregisterSaveModeObserver();
 
+    if (mode != PowerMode::EXTREME_POWER_SAVE_MODE && subMode_ != PowerSubMode::SUB_MODE_INVALID) {
+        subMode_ = PowerSubMode::SUB_MODE_INVALID;
+        SettingHelper::SaveCurrentSubMode(static_cast<int32_t>(subMode_));
+    }
+
     /* start set mode thread */
     EnableMode(mode);
 
@@ -182,6 +198,36 @@ PowerMode PowerModeModule::GetModeItem()
     POWER_HILOGD(FEATURE_POWER_MODE, "GetModeItem mode_: %{public}u", mode_);
     /* get power mode */
     return mode_;
+}
+
+PowerErrors PowerModeModule::SetModeAndSubModeItem(PowerMode mode, PowerSubMode subMode)
+{
+    POWER_HILOGI(FEATURE_POWER_MODE, "SetModeAndSubModeItem mode: %{public}u, subMode: %{public}d",
+        static_cast<uint32_t>(mode), static_cast<int32_t>(subMode));
+    if (subMode != PowerSubMode::SUB_MODE_INVALID &&
+        subMode != PowerSubMode::SUB_MODE_SUPER_POWER_SAVE &&
+        subMode != PowerSubMode::SUB_MODE_EMERGENCY) {
+        POWER_HILOGW(FEATURE_POWER_MODE, "Invalid sub mode %{public}d", static_cast<int32_t>(subMode));
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    PowerSubMode oldSubMode = subMode_;
+    bool sameMode = (mode_ == mode);
+    PowerErrors ret = SetModeItem(mode);
+    if (ret != PowerErrors::ERR_OK) {
+        return ret;
+    }
+    subMode_ = subMode;
+    SettingHelper::SaveCurrentSubMode(static_cast<int32_t>(subMode_));
+    if (sameMode && oldSubMode != subMode) {
+        PublishPowerModeEvent();
+    }
+    return PowerErrors::ERR_OK;
+}
+
+PowerSubMode PowerModeModule::GetSubModeItem()
+{
+    POWER_HILOGD(FEATURE_POWER_MODE, "GetSubModeItem subMode_: %{public}d", static_cast<int32_t>(subMode_));
+    return subMode_;
 }
 
 bool PowerModeModule::IsPowerSaveModeDisabled(PowerMode mode)
@@ -452,41 +498,34 @@ void PowerModeModule::PublishPowerModeEvent()
     /* send event */
     CommonEventPublishInfo publishInfo;
     publishInfo.SetOrdered(false);
-    std::string action;
+    std::string action = CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED;
     uint32_t code;
-    std::string data;
     switch (mode_) {
         case PowerMode::PERFORMANCE_MODE:
-            action = CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED;
             code = static_cast<uint32_t>(PowerMode::PERFORMANCE_MODE);
-            data = ToString(static_cast<uint32_t>(PowerMode::PERFORMANCE_MODE));
             break;
         case PowerMode::NORMAL_MODE:
-            action = CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED;
             code = static_cast<uint32_t>(PowerMode::NORMAL_MODE);
-            data = ToString(static_cast<uint32_t>(PowerMode::NORMAL_MODE));
             break;
         case PowerMode::POWER_SAVE_MODE:
-            action = CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED;
             code = static_cast<uint32_t>(PowerMode::POWER_SAVE_MODE);
-            data = ToString(static_cast<uint32_t>(PowerMode::POWER_SAVE_MODE));
             break;
         case PowerMode::EXTREME_POWER_SAVE_MODE:
-            action = CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED;
             code = static_cast<uint32_t>(PowerMode::EXTREME_POWER_SAVE_MODE);
-            data = ToString(static_cast<uint32_t>(PowerMode::EXTREME_POWER_SAVE_MODE));
             break;
         case PowerMode::CUSTOM_POWER_SAVE_MODE:
-            action = CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED;
             code = static_cast<uint32_t>(PowerMode::CUSTOM_POWER_SAVE_MODE);
-            data = ToString(static_cast<uint32_t>(PowerMode::CUSTOM_POWER_SAVE_MODE));
             break;
         default:
             POWER_HILOGW(FEATURE_POWER_MODE, "Unknown mode");
             return;
     }
+    std::string data = ToString(code);
     IntentWant setModeWant;
     setModeWant.SetAction(action);
+    if (mode_ == PowerMode::EXTREME_POWER_SAVE_MODE) {
+        setModeWant.SetParam("subMode", std::to_string(static_cast<int32_t>(subMode_)));
+    }
     CommonEventData event(setModeWant);
     event.SetCode(code);
     event.SetData(data);

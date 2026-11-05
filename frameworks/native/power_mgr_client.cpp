@@ -715,6 +715,39 @@ PowerMode PowerMgrClient::GetDeviceMode()
     return static_cast<PowerMode>(powerMode);
 }
 
+PowerErrors PowerMgrClient::SetDeviceMode(const PowerMode mode, const PowerSubMode subMode)
+{
+    if (mode < PowerMode::POWER_MODE_MIN || mode > PowerMode::POWER_MODE_MAX ||
+        (mode > PowerMode::EXTREME_POWER_SAVE_MODE && mode < PowerMode::POWER_MODE_MAX)) {
+        POWER_HILOGW(FEATURE_POWER_MODE, "Invalid mode %{public}u", static_cast<uint32_t>(mode));
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    if (subMode != PowerSubMode::SUB_MODE_INVALID &&
+        subMode != PowerSubMode::SUB_MODE_SUPER_POWER_SAVE &&
+        subMode != PowerSubMode::SUB_MODE_EMERGENCY) {
+        POWER_HILOGW(FEATURE_POWER_MODE, "Invalid sub mode %{public}d", static_cast<int32_t>(subMode));
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    sptr<IPowerMgr> proxy = GetPowerMgrProxy();
+    RETURN_IF_WITH_RET(proxy == nullptr, PowerErrors::ERR_CONNECTION_FAIL);
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
+    int32_t modeValue = static_cast<int32_t>(mode);
+    int32_t subModeValue = static_cast<int32_t>(subMode);
+    proxy->SetDeviceSubModeIpc(modeValue, subModeValue, powerError);
+    return static_cast<PowerErrors>(powerError);
+}
+
+PowerSubMode PowerMgrClient::GetDeviceSubMode()
+{
+    sptr<IPowerMgr> proxy = GetPowerMgrProxy();
+    if (proxy == nullptr) {
+        return PowerSubMode::SUB_MODE_INVALID;
+    }
+    int32_t powerSubMode = static_cast<int32_t>(PowerSubMode::SUB_MODE_INVALID);
+    proxy->GetDeviceSubModeIpc(powerSubMode);
+    return static_cast<PowerSubMode>(powerSubMode);
+}
+
 PowerErrors PowerMgrClient::GetPowerConfig(const std::string& sceneName, std::string& configVal)
 {
     sptr<IPowerMgr> proxy = GetPowerMgrProxy();
