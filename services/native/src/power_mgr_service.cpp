@@ -2434,6 +2434,9 @@ PowerErrors PowerMgrService::SetDeviceMode(const PowerMode& mode)
             "The power save mode %{public}u is disabled by the enterprise policy", mode);
         return PowerErrors::ERR_ENTERPRISE_POLICIES_DENIED;
     }
+    if (mode == PowerMode::EXTREME_POWER_SAVE_MODE) {
+        return powerModeModule_.SetModeAndSubModeItem(mode, PowerSubMode::SUB_MODE_EMERGENCY);
+    }
     return powerModeModule_.SetModeItem(mode);
 }
 
@@ -2446,6 +2449,47 @@ PowerMode PowerMgrService::GetDeviceMode()
     POWER_HILOGI(FEATURE_POWER_MODE, "%{public}s: pid: %{public}d, uid: %{public}d, mode: %{public}u",
         __func__, pid, uid, mode);
     return mode;
+}
+
+PowerErrors PowerMgrService::SetDeviceMode(const PowerMode& mode, const PowerSubMode& subMode)
+{
+    std::lock_guard lock(modeMutex_);
+    pid_t pid = IPCSkeleton::GetCallingPid();
+    auto uid = IPCSkeleton::GetCallingUid();
+    POWER_HILOGI(FEATURE_POWER_MODE, "%{public}s: pid: %{public}d, uid: %{public}d, "
+        "mode: %{public}u, subMode: %{public}d", __func__, pid, uid, mode, subMode);
+    if (!Permission::IsSystem()) {
+        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    }
+    if (!Permission::IsPermissionGranted("ohos.permission.POWER_OPTIMIZATION")) {
+        return PowerErrors::ERR_PERMISSION_DENIED;
+    }
+    if (mode != PowerMode::EXTREME_POWER_SAVE_MODE) {
+        POWER_HILOGW(FEATURE_POWER_MODE, "Non-603 mode does not support sub mode, mode: %{public}u",
+            static_cast<uint32_t>(mode));
+        return PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED;
+    }
+    if (PowerModeModule::IsPowerSaveModeDisabled(mode)) {
+        POWER_HILOGE(FEATURE_POWER_MODE,
+            "The power save mode %{public}u is disabled by the enterprise policy", mode);
+        return PowerErrors::ERR_ENTERPRISE_POLICIES_DENIED;
+    }
+    if (subMode == PowerSubMode::SUB_MODE_INVALID) {
+        POWER_HILOGW(FEATURE_POWER_MODE, "603 requires valid sub mode");
+        return PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED;
+    }
+    return powerModeModule_.SetModeAndSubModeItem(mode, subMode);
+}
+
+PowerSubMode PowerMgrService::GetDeviceSubMode()
+{
+    std::lock_guard lock(modeMutex_);
+    pid_t pid = IPCSkeleton::GetCallingPid();
+    auto uid = IPCSkeleton::GetCallingUid();
+    auto subMode = powerModeModule_.GetSubModeItem();
+    POWER_HILOGI(FEATURE_POWER_MODE, "%{public}s: pid: %{public}d, uid: %{public}d, "
+        "subMode: %{public}d", __func__, pid, uid, static_cast<int32_t>(subMode));
+    return subMode;
 }
 
 std::string PowerMgrService::ShellDump(const std::vector<std::string>& args, uint32_t argc)

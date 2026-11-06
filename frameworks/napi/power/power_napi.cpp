@@ -37,6 +37,9 @@ constexpr uint32_t REBOOT_SHUTDOWN_MAX_ARGC = 1;
 constexpr uint32_t WAKEUP_MAX_ARGC = 1;
 constexpr uint32_t SET_MODE_CALLBACK_MAX_ARGC = 2;
 constexpr uint32_t SET_MODE_PROMISE_MAX_ARGC = 1;
+constexpr uint32_t SET_MODE_SUBMODE_ARGC = 2;
+constexpr uint32_t SET_MODE_SUB_MAX_ARGC = 2;
+constexpr uint32_t SET_MODE_SUB_MIN_ARGC = 2;
 constexpr uint32_t SUSPEND_MAX_ARGC = 1;
 constexpr uint32_t SET_SCREEN_OFFTIME_ARGC = 1;
 constexpr uint32_t HIBERNATE_ARGC = 1;
@@ -255,15 +258,18 @@ napi_value PowerNapi::SetPowerMode(napi_env env, napi_callback_info info)
         return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
     }
 
+    if (argc == SET_MODE_SUBMODE_ARGC && NapiUtils::CheckValueType(env, argv[INDEX_1], napi_number)) {
+        POWER_HILOGD(FEATURE_POWER_MODE, "Call setPowerMode with subMode");
+        return SetPowerSubMode(env, info);
+    }
+
     std::unique_ptr<AsyncCallbackInfo> asyncInfo = std::make_unique<AsyncCallbackInfo>();
     RETURN_IF_WITH_RET(asyncInfo == nullptr, nullptr);
-    // callback
     if (argc == SET_MODE_CALLBACK_MAX_ARGC) {
         POWER_HILOGD(FEATURE_POWER_MODE, "Call setPowerMode callback");
         return SetPowerModeCallback(env, argv, asyncInfo);
     }
 
-    // promise
     POWER_HILOGD(FEATURE_POWER_MODE, "Call setPowerMode promise");
     return SetPowerModePromise(env, argv, asyncInfo);
 }
@@ -274,6 +280,44 @@ napi_value PowerNapi::GetPowerMode(napi_env env, napi_callback_info info)
     napi_value napiValue;
     NAPI_CALL(env, napi_create_uint32(env, static_cast<uint32_t>(mode), &napiValue));
     return napiValue;
+}
+
+napi_value PowerNapi::SetPowerSubMode(napi_env env, napi_callback_info info)
+{
+    size_t argc = SET_MODE_SUB_MAX_ARGC;
+    napi_value argv[argc];
+    NapiUtils::GetCallbackInfo(env, info, argc, argv);
+
+    NapiErrors error;
+    if (argc < SET_MODE_SUB_MIN_ARGC || argc > SET_MODE_SUB_MAX_ARGC) {
+        return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+    }
+
+    bool isModeNum = NapiUtils::CheckValueType(env, argv[INDEX_0], napi_number);
+    if (!isModeNum) {
+        return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+    }
+
+    bool isSubModeNum = NapiUtils::CheckValueType(env, argv[INDEX_1], napi_number);
+    if (!isSubModeNum) {
+        return error.ThrowError(env, PowerErrors::ERR_PARAM_INVALID);
+    }
+
+    std::unique_ptr<AsyncCallbackInfo> asyncInfo = std::make_unique<AsyncCallbackInfo>();
+    RETURN_IF_WITH_RET(asyncInfo == nullptr, nullptr);
+    asyncInfo->GetData().SetMode(env, argv[INDEX_0]);
+    asyncInfo->GetData().SetSubMode(env, argv[INDEX_1]);
+
+    POWER_HILOGD(FEATURE_POWER_MODE, "Call setPowerMode with subMode promise");
+    return SetPowerSubModePromise(env, asyncInfo);
+}
+
+napi_value PowerNapi::GetPowerSubMode(napi_env env, napi_callback_info info)
+{
+    PowerSubMode subMode = g_powerMgrClient.GetDeviceSubMode();
+    napi_value napiSubMode;
+    NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(subMode), &napiSubMode));
+    return napiSubMode;
 }
 
 napi_value PowerNapi::GetPowerConfig(napi_env env, napi_callback_info info)
@@ -435,6 +479,38 @@ napi_value PowerNapi::SetPowerModePromise(
             AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
             RETURN_IF(asyncInfo == nullptr);
             PowerErrors error = g_powerMgrClient.SetDeviceMode(asyncInfo->GetData().GetMode());
+            asyncInfo->GetError().Error(error);
+        },
+        [](napi_env env, napi_status status, void* data) {
+            AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
+            RETURN_IF(asyncInfo == nullptr);
+            if (asyncInfo->GetError().IsError()) {
+                napi_reject_deferred(env, asyncInfo->GetDeferred(), asyncInfo->GetError().GetNapiError(env));
+            } else {
+                napi_value undefined;
+                napi_get_undefined(env, &undefined);
+                napi_resolve_deferred(env, asyncInfo->GetDeferred(), undefined);
+            }
+            asyncInfo->Release(env);
+            delete asyncInfo;
+        });
+    return promise;
+}
+
+napi_value PowerNapi::SetPowerSubModePromise(
+    napi_env& env, std::unique_ptr<AsyncCallbackInfo>& asyncInfo)
+{
+    napi_value promise;
+    asyncInfo->CreatePromise(env, promise);
+    RETURN_IF_WITH_RET(promise == nullptr, nullptr);
+
+    AsyncWork(
+        env, asyncInfo, "SetPowerSubModePromise",
+        [](napi_env env, void* data) {
+            AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
+            RETURN_IF(asyncInfo == nullptr);
+            PowerErrors error = g_powerMgrClient.SetDeviceMode(
+                asyncInfo->GetData().GetMode(), asyncInfo->GetData().GetSubMode());
             asyncInfo->GetError().Error(error);
         },
         [](napi_env env, napi_status status, void* data) {

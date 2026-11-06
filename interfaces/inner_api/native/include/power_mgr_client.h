@@ -201,6 +201,22 @@ public:
     PowerMode GetDeviceMode();
 
     /**
+     * Set the device mode and sub mode.
+     *
+     * @param mode The mode the device.
+     * @param subMode The sub mode the device.
+     */
+    PowerErrors SetDeviceMode(const PowerMode mode, const PowerSubMode subMode);
+
+    /**
+     * Get the device mode and sub mode.
+     *
+     * @param mode The output mode the device.
+     * @param subMode The output sub mode the device.
+     */
+    PowerSubMode GetDeviceSubMode();
+
+    /**
      * Get power config by scene name.
      *
      * @param sceneName The scene name for the power config.

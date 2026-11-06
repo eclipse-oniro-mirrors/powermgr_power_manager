@@ -68,6 +68,30 @@ static napi_value CreateDevicePowerMode(napi_env env, napi_value exports)
     return exports;
 }
 
+static napi_value CreateDevicePowerSubMode(napi_env env, napi_value exports)
+{
+    napi_value subModeInvalid = nullptr;
+    napi_value subModeSuperPowerSave = nullptr;
+    napi_value subModeEmergency = nullptr;
+
+    napi_create_int32(env, (int32_t)PowerSubMode::SUB_MODE_INVALID, &subModeInvalid);
+    napi_create_int32(env, (int32_t)PowerSubMode::SUB_MODE_SUPER_POWER_SAVE, &subModeSuperPowerSave);
+    napi_create_int32(env, (int32_t)PowerSubMode::SUB_MODE_EMERGENCY, &subModeEmergency);
+
+    napi_property_descriptor desc[] = {
+        DECLARE_NAPI_STATIC_PROPERTY("SUB_MODE_INVALID", subModeInvalid),
+        DECLARE_NAPI_STATIC_PROPERTY("SUB_MODE_SUPER_POWER_SAVE", subModeSuperPowerSave),
+        DECLARE_NAPI_STATIC_PROPERTY("SUB_MODE_EMERGENCY", subModeEmergency),
+    };
+    napi_value result = nullptr;
+    napi_define_class(env, "DevicePowerSubMode", NAPI_AUTO_LENGTH, EnumPowerModeClassConstructor, nullptr,
+        sizeof(desc) / sizeof(*desc), desc, &result);
+
+    napi_set_named_property(env, exports, "DevicePowerSubMode", result);
+
+    return exports;
+}
+
 static napi_value EnumPowerKeyFilteringStrategyClassConstructor(napi_env env, napi_callback_info info)
 {
     napi_value thisArg = nullptr;
@@ -127,6 +151,7 @@ static napi_value PowerInit(napi_env env, napi_value exports)
         DECLARE_NAPI_FUNCTION("hibernate", PowerNapi::Hibernate),
         DECLARE_NAPI_FUNCTION("setPowerMode", PowerNapi::SetPowerMode),
         DECLARE_NAPI_FUNCTION("getPowerMode", PowerNapi::GetPowerMode),
+        DECLARE_NAPI_FUNCTION("getPowerSubMode", PowerNapi::GetPowerSubMode),
         DECLARE_NAPI_FUNCTION("getPowerConfig", PowerNapi::GetPowerConfig),
         DECLARE_NAPI_FUNCTION("setPowerConfig", PowerNapi::SetPowerConfig),
         DECLARE_NAPI_FUNCTION("isStandby", PowerNapi::IsStandby),
@@ -137,6 +162,7 @@ static napi_value PowerInit(napi_env env, napi_value exports)
         DECLARE_NAPI_FUNCTION("unregisterShutdownCallback", PowerNapi::UnRegisterShutdownCallback)};
     NAPI_CALL(env, napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc));
     CreateDevicePowerMode(env, exports);
+    CreateDevicePowerSubMode(env, exports);
     CreatePowerKeyFilteringStrategy(env, exports);
     POWER_HILOGD(COMP_FWK, "The initialization of the Power module is complete");
 

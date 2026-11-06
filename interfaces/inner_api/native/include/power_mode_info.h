@@ -30,6 +30,12 @@ enum class PowerMode : uint32_t {
     CUSTOM_POWER_SAVE_MODE = 650,
     POWER_MODE_MAX = CUSTOM_POWER_SAVE_MODE
 };
+
+enum class PowerSubMode : int32_t {
+    SUB_MODE_INVALID = -1,
+    SUB_MODE_SUPER_POWER_SAVE = 603001,
+    SUB_MODE_EMERGENCY = 603002,
+};
 } // namespace PowerMgr
 } // namespace OHOS
 #endif // POWER_MODE_INFO_H

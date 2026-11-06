@@ -34,6 +34,7 @@
             OHOS::PowerMgr::PowerMgrProxy::ForceSuspendDeviceIgnoringWakelockIpc*;
             OHOS::PowerMgr::PowerMgrProxy::InterruptForceSuspendIpc*;
             OHOS::PowerMgr::PowerMgrProxy::GetDeviceModeIpc*;
+            OHOS::PowerMgr::PowerMgrProxy::GetDeviceSubModeIpc*;
             OHOS::PowerMgr::PowerMgrProxy::GetPowerConfigIpc*;
             OHOS::PowerMgr::PowerMgrProxy::GetShutdownReasonIpc*;
             OHOS::PowerMgr::PowerMgrProxy::GetStateIpc*;
@@ -71,6 +72,7 @@
             OHOS::PowerMgr::PowerMgrProxy::ResetRunningLocksIpc*;
             OHOS::PowerMgr::PowerMgrProxy::RestoreScreenOffTimeIpc*;
             OHOS::PowerMgr::PowerMgrProxy::SetDeviceModeIpc*;
+            OHOS::PowerMgr::PowerMgrProxy::SetDeviceSubModeIpc*;
             OHOS::PowerMgr::PowerMgrProxy::SetDisplaySuspendIpc*;
             OHOS::PowerMgr::PowerMgrProxy::SetForceTimingOutIpc*;
             OHOS::PowerMgr::PowerMgrProxy::SetPowerConfigIpc*;

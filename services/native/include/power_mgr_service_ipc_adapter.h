@@ -94,6 +94,8 @@ public:
     virtual int32_t SetDisplaySuspendIpc(bool enable) override;
     virtual int32_t SetDeviceModeIpc(int32_t modeValue, int32_t& powerError) override;
     virtual int32_t GetDeviceModeIpc(int32_t& powerMode) override;
+    virtual int32_t SetDeviceSubModeIpc(int32_t modeValue, int32_t subModeValue, int32_t& powerError) override;
+    virtual int32_t GetDeviceSubModeIpc(int32_t& powerSubMode) override;
     virtual int32_t ShellDumpIpc(const std::vector<std::string>& args, uint32_t argc, std::string& returnDump) override;
     virtual int32_t IsStandbyIpc(bool& isStandby, int32_t& powerError) override;
     virtual int32_t SetForceTimingOutIpc(bool enabled, const sptr<IRemoteObject>& token, int32_t& powerError) override;
@@ -196,6 +198,8 @@ public:
     virtual bool SetDisplaySuspend(bool enable) = 0;
     virtual PowerErrors SetDeviceMode(const PowerMode& mode) = 0;
     virtual PowerMode GetDeviceMode() = 0;
+    virtual PowerErrors SetDeviceMode(const PowerMode& mode, const PowerSubMode& subMode) = 0;
+    virtual PowerSubMode GetDeviceSubMode() = 0;
     virtual std::string ShellDump(const std::vector<std::string>& args, uint32_t argc) = 0;
     virtual PowerErrors IsStandby(bool& isStandby) = 0;
     virtual PowerErrors SetForceTimingOut(bool enabled, const sptr<IRemoteObject>& token) = 0;

@@ -90,6 +90,8 @@ interface OHOS.PowerMgr.IPowerMgr {
         [in] IPowerMgrAsync powerProxy);
     void SetDeviceModeIpc([in] int modeValue, [out] int powerError);
     void GetDeviceModeIpc([out] int powerMode);
+    void SetDeviceSubModeIpc([in] int modeValue, [in] int subModeValue, [out] int powerError);
+    void GetDeviceSubModeIpc([out] int powerSubMode);
     void ShellDumpIpc([in] String[] args, [in] unsigned int argc, [out] String returnDump);
     void IsStandbyIpc([out] boolean isStandby, [out] int powerError);
 
