@@ -43,6 +43,12 @@ public:
         void OnParallelShutdownOrReboot(bool isReboot, uint64_t identity) override;
     };
 
+    class NoVoteParallelShutdownCallback : public ParallelShutdownCallbackStub {
+    public:
+        ~NoVoteParallelShutdownCallback() override = default;
+        void OnParallelShutdownOrReboot(bool isReboot, uint64_t identity) override;
+    };
+
 protected:
     static void SetUpTestCase();
     static void TearDownTestCase();

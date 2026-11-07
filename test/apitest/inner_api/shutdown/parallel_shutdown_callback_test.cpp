@@ -41,6 +41,8 @@ std::atomic<bool> g_callback1Called{false};
 std::atomic<bool> g_callback2Called{false};
 std::atomic<bool> g_callback3Called{false};
 std::atomic<int32_t> g_voteCount{0};
+std::atomic<bool> g_noVoteCallbackCalled{false};
+std::atomic<uint64_t> g_noVoteIdentity{0};
 std::vector<sptr<IRemoteObject>> g_registeredCallbacks;
 
 void RegisterParallelCallback(const sptr<IParallelShutdownCallback>& callback)
@@ -69,6 +71,8 @@ void ParallelShutdownCallbackTest::SetUp()
     g_callback2Called = false;
     g_callback3Called = false;
     g_voteCount = 0;
+    g_noVoteCallbackCalled = false;
+    g_noVoteIdentity = 0;
     g_registeredCallbacks.clear();
     g_mockPowerAction = new MockPowerAction();
     g_mockStateAction = new MockStateAction();
@@ -111,6 +115,13 @@ void ParallelShutdownCallbackTest::ParallelShutdownCallback3::OnParallelShutdown
     g_callback3Called = true;
     g_voteCount++;
     g_service->GetShutdownController()->VoteCallback(identity);
+}
+
+void ParallelShutdownCallbackTest::NoVoteParallelShutdownCallback::OnParallelShutdownOrReboot(
+    bool isReboot, uint64_t identity)
+{
+    g_noVoteCallbackCalled = true;
+    g_noVoteIdentity.store(identity);
 }
 
 /**
@@ -222,7 +233,7 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownVote002, TestSize.Level1)
 {
     POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote002 function start!");
     auto callback = new ParallelShutdownCallback();
-   RegisterParallelCallback(callback);
+    RegisterParallelCallback(callback);
 
     EXPECT_CALL(*g_mockPowerAction, Shutdown(std::string("test_case"))).Times(::testing::AtLeast(1));
     g_service->ShutDownDevice("test_case");
@@ -256,6 +267,88 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownCallbackRegression001, Te
     EXPECT_FALSE(g_callback2Called);
     EXPECT_FALSE(g_callback3Called);
     POWER_HILOGI(LABEL_TEST, "ParallelShutdownCallbackRegression001 function end!");
+}
+
+/**
+ * @tc.name: ParallelShutdownVote003
+ * @tc.desc: Test partial votes - system waits for missing vote (AC-2.2)
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownVote003, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote003 function start!");
+    auto votingCallback = new ParallelShutdownCallback();
+    auto noVoteCallback = new NoVoteParallelShutdownCallback();
+    RegisterParallelCallback(votingCallback);
+    RegisterParallelCallback(noVoteCallback);
+
+    EXPECT_CALL(*g_mockPowerAction, Reboot(std::string("test_case"))).Times(::testing::AtLeast(1));
+    g_service->RebootDevice("test_case");
+
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    auto shutdownController = g_service->GetShutdownController();
+    EXPECT_TRUE(shutdownController->started_)
+        << "System should still be waiting for missing vote after 3s";
+
+    shutdownController->VoteCallback(g_noVoteIdentity.load());
+
+    while (shutdownController->started_) {
+        std::this_thread::yield();
+    }
+    EXPECT_TRUE(g_callback1Called);
+    EXPECT_TRUE(g_noVoteCallbackCalled);
+    EXPECT_EQ(g_voteCount.load(), 1);
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote003 function end!");
+}
+
+/**
+ * @tc.name: ParallelShutdownVote004
+ * @tc.desc: Test timeout force proceed when no votes received (AC-3.1)
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownVote004, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote004 function start!");
+    auto noVoteCallback = new NoVoteParallelShutdownCallback();
+    RegisterParallelCallback(noVoteCallback);
+
+    auto startTime = std::chrono::steady_clock::now();
+
+    EXPECT_CALL(*g_mockPowerAction, Shutdown(std::string("test_case"))).Times(::testing::AtLeast(1));
+    g_service->ShutDownDevice("test_case");
+
+    auto shutdownController = g_service->GetShutdownController();
+    while (shutdownController->started_) {
+        std::this_thread::yield();
+    }
+
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::steady_clock::now() - startTime).count();
+    POWER_HILOGI(LABEL_TEST, "Shutdown completed after %{public}lld seconds", elapsed);
+
+    EXPECT_TRUE(g_noVoteCallbackCalled);
+    EXPECT_TRUE(shutdownController->completionTracker_.IsSerialDone());
+    EXPECT_FALSE(shutdownController->completionTracker_.IsParallelDone());
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote004 function end!");
+}
+
+/**
+ * @tc.name: ParallelShutdownVote005
+ * @tc.desc: Test unregistered identity vote is ignored (EB-5)
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownVote005, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote005 function start!");
+    auto shutdownController = g_service->GetShutdownController();
+
+    const uint64_t invalidIdentity = 999999999;
+    shutdownController->VoteCallback(invalidIdentity);
+
+    EXPECT_FALSE(shutdownController->started_);
+    EXPECT_FALSE(g_callback1Called);
+    EXPECT_FALSE(g_noVoteCallbackCalled);
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote005 function end!");
 }
 } // namespace UnitTest
 } // namespace PowerMgr
