@@ -18,6 +18,7 @@
 #include <atomic>
 #include <chrono>
 #include <thread>
+#include <vector>
 
 #include "power_log.h"
 #include "power_mgr_client.h"
@@ -40,6 +41,13 @@ std::atomic<bool> g_callback1Called{false};
 std::atomic<bool> g_callback2Called{false};
 std::atomic<bool> g_callback3Called{false};
 std::atomic<int32_t> g_voteCount{0};
+std::vector<sptr<IRemoteObject>> g_registeredCallbacks;
+
+void RegisterParallelCallback(const sptr<IParallelShutdownCallback>& callback)
+{
+    g_service->RegisterShutdownCallback(callback);
+    g_registeredCallbacks.push_back(callback->AsObject());
+}
 }
 using namespace testing::ext;
 
@@ -61,6 +69,7 @@ void ParallelShutdownCallbackTest::SetUp()
     g_callback2Called = false;
     g_callback3Called = false;
     g_voteCount = 0;
+    g_registeredCallbacks.clear();
     g_mockPowerAction = new MockPowerAction();
     g_mockStateAction = new MockStateAction();
     auto shutdownController = g_service->GetShutdownController();
@@ -73,6 +82,13 @@ void ParallelShutdownCallbackTest::TearDown()
     while (shutdownController->started_) {
         std::this_thread::yield();
     }
+    for (const auto& obj : g_registeredCallbacks) {
+        auto callback = iface_cast<IParallelShutdownCallback>(obj);
+        if (callback != nullptr) {
+            g_service->UnRegisterShutdownCallback(callback);
+        }
+    }
+    g_registeredCallbacks.clear();
     shutdownController->EnableMock(nullptr, nullptr);
 }
 
@@ -106,7 +122,7 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownCallback001, TestSize.Lev
 {
     POWER_HILOGI(LABEL_TEST, "ParallelShutdownCallback001 function start!");
     auto callback = new ParallelShutdownCallback();
-    g_service->RegisterShutdownCallback(callback);
+    RegisterParallelCallback(callback);
 
     EXPECT_CALL(*g_mockPowerAction, Reboot(std::string("test_case"))).Times(::testing::AtLeast(1));
     g_service->RebootDevice("test_case");
@@ -128,8 +144,9 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownCallback002, TestSize.Lev
 {
     POWER_HILOGI(LABEL_TEST, "ParallelShutdownCallback002 function start!");
     auto callback = new ParallelShutdownCallback();
-    g_service->RegisterShutdownCallback(callback);
+    RegisterParallelCallback(callback);
     g_service->UnRegisterShutdownCallback(callback);
+    g_registeredCallbacks.clear();
 
     EXPECT_CALL(*g_mockPowerAction, Shutdown(std::string("test_case"))).Times(::testing::AtLeast(1));
     g_service->ShutDownDevice("test_case");
@@ -153,9 +170,9 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownCallback003, TestSize.Lev
     auto callback1 = new ParallelShutdownCallback();
     auto callback2 = new ParallelShutdownCallback2();
     auto callback3 = new ParallelShutdownCallback3();
-    g_service->RegisterShutdownCallback(callback1);
-    g_service->RegisterShutdownCallback(callback2);
-    g_service->RegisterShutdownCallback(callback3);
+    RegisterParallelCallback(callback1);
+    RegisterParallelCallback(callback2);
+    RegisterParallelCallback(callback3);
 
     EXPECT_CALL(*g_mockPowerAction, Shutdown(std::string("test_case"))).Times(::testing::AtLeast(1));
     g_service->ShutDownDevice("test_case");
@@ -180,8 +197,8 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownVote001, TestSize.Level1)
     POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote001 function start!");
     auto callback1 = new ParallelShutdownCallback();
     auto callback2 = new ParallelShutdownCallback2();
-    g_service->RegisterShutdownCallback(callback1);
-    g_service->RegisterShutdownCallback(callback2);
+    RegisterParallelCallback(callback1);
+    RegisterParallelCallback(callback2);
 
     EXPECT_CALL(*g_mockPowerAction, Reboot(std::string("test_case"))).Times(::testing::AtLeast(1));
     g_service->RebootDevice("test_case");
@@ -205,7 +222,7 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownVote002, TestSize.Level1)
 {
     POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote002 function start!");
     auto callback = new ParallelShutdownCallback();
-    g_service->RegisterShutdownCallback(callback);
+   RegisterParallelCallback(callback);
 
     EXPECT_CALL(*g_mockPowerAction, Shutdown(std::string("test_case"))).Times(::testing::AtLeast(1));
     g_service->ShutDownDevice("test_case");
