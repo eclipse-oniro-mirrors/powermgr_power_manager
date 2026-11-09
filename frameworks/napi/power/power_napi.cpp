@@ -509,7 +509,7 @@ napi_value PowerNapi::SetPowerSubModePromise(
         [](napi_env env, void* data) {
             AsyncCallbackInfo* asyncInfo = reinterpret_cast<AsyncCallbackInfo*>(data);
             RETURN_IF(asyncInfo == nullptr);
-            PowerErrors error = g_powerMgrClient.SetDeviceMode(
+            PowerErrors error = g_powerMgrClient.SetDeviceSubMode(
                 asyncInfo->GetData().GetMode(), asyncInfo->GetData().GetSubMode());
             asyncInfo->GetError().Error(error);
         },

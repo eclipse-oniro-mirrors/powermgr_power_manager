@@ -2451,7 +2451,7 @@ PowerMode PowerMgrService::GetDeviceMode()
     return mode;
 }
 
-PowerErrors PowerMgrService::SetDeviceMode(const PowerMode& mode, const PowerSubMode& subMode)
+PowerErrors PowerMgrService::SetDeviceSubMode(const PowerMode& mode, const PowerSubMode& subMode)
 {
     std::lock_guard lock(modeMutex_);
     pid_t pid = IPCSkeleton::GetCallingPid();

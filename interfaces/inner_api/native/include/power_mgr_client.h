@@ -206,7 +206,7 @@ public:
      * @param mode The mode the device.
      * @param subMode The sub mode the device.
      */
-    PowerErrors SetDeviceMode(const PowerMode mode, const PowerSubMode subMode);
+    PowerErrors SetDeviceSubMode(const PowerMode mode, const PowerSubMode subMode);
 
     /**
      * Get the device mode and sub mode.

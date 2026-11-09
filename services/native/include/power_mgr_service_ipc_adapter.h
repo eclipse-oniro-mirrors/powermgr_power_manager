@@ -198,7 +198,7 @@ public:
     virtual bool SetDisplaySuspend(bool enable) = 0;
     virtual PowerErrors SetDeviceMode(const PowerMode& mode) = 0;
     virtual PowerMode GetDeviceMode() = 0;
-    virtual PowerErrors SetDeviceMode(const PowerMode& mode, const PowerSubMode& subMode) = 0;
+    virtual PowerErrors SetDeviceSubMode(const PowerMode& mode, const PowerSubMode& subMode) = 0;
     virtual PowerSubMode GetDeviceSubMode() = 0;
     virtual std::string ShellDump(const std::vector<std::string>& args, uint32_t argc) = 0;
     virtual PowerErrors IsStandby(bool& isStandby) = 0;

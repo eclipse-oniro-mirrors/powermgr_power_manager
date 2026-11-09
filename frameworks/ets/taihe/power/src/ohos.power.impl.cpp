@@ -180,7 +180,7 @@ void SetPowerSubModeSync(DevicePowerMode mode, DevicePowerSubMode subMode)
 {
     PowerMode powerMode = PowerMode(static_cast<uint32_t>(mode));
     PowerSubMode powerSubMode = PowerSubMode(static_cast<int32_t>(subMode));
-    PowerErrors code = g_powerMgrClient.SetDeviceMode(powerMode, powerSubMode);
+    PowerErrors code = g_powerMgrClient.SetDeviceSubMode(powerMode, powerSubMode);
     if (code != PowerErrors::ERR_OK && code != PowerErrors::ERR_FAILURE) {
         taihe::set_business_error(static_cast<int32_t>(code), GetErrorMessage(code));
     }

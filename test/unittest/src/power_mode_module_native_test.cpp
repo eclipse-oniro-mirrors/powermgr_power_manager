@@ -275,7 +275,7 @@ HWTEST_F (PowerModeModuleNativeTest, GetDeviceSubMode_001, TestSize.Level1)
 
 /**
  * @tc.name: SetDeviceMode_001
- * @tc.desc: Test SetDeviceMode permission and association validation
+ * @tc.desc: Test SetDeviceSubMode permission and association validation
  * @tc.type: FUNC
  */
 HWTEST_F (PowerModeModuleNativeTest, SetDeviceMode_001, TestSize.Level1)
@@ -284,23 +284,23 @@ HWTEST_F (PowerModeModuleNativeTest, SetDeviceMode_001, TestSize.Level1)
     auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
     auto& module = pmsTest->GetPowerModeModule();
     module.mode_ = PowerMode::NORMAL_MODE;
-    PowerErrors ret = pmsTest->SetDeviceMode(
+    PowerErrors ret = pmsTest->SetDeviceSubMode(
         PowerMode::NORMAL_MODE, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
     EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
-    ret = pmsTest->SetDeviceMode(
+    ret = pmsTest->SetDeviceSubMode(
         PowerMode::NORMAL_MODE, PowerSubMode::SUB_MODE_EMERGENCY);
     EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
     PowerSubMode invalidSubMode = static_cast<PowerSubMode>(999);
-    ret = pmsTest->SetDeviceMode(
+    ret = pmsTest->SetDeviceSubMode(
         PowerMode::EXTREME_POWER_SAVE_MODE, invalidSubMode);
     EXPECT_EQ(ret, PowerErrors::ERR_PARAM_INVALID);
-    ret = pmsTest->SetDeviceMode(
+    ret = pmsTest->SetDeviceSubMode(
         PowerMode::EXTREME_POWER_SAVE_MODE, PowerSubMode::SUB_MODE_INVALID);
     EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
-    ret = pmsTest->SetDeviceMode(
+    ret = pmsTest->SetDeviceSubMode(
         PowerMode::NORMAL_MODE, PowerSubMode::SUB_MODE_INVALID);
     EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
-    ret = pmsTest->SetDeviceMode(
+    ret = pmsTest->SetDeviceSubMode(
         PowerMode::EXTREME_POWER_SAVE_MODE, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
     EXPECT_EQ(ret, PowerErrors::ERR_OK);
     EXPECT_EQ(module.GetSubModeItem(), PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);

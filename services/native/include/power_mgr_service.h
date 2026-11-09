@@ -157,7 +157,7 @@ public:
     virtual bool SetDisplaySuspend(bool enable) override;
     virtual PowerErrors SetDeviceMode(const PowerMode& mode) override;
     virtual PowerMode GetDeviceMode() override;
-    virtual PowerErrors SetDeviceMode(const PowerMode& mode, const PowerSubMode& subMode) override;
+    virtual PowerErrors SetDeviceSubMode(const PowerMode& mode, const PowerSubMode& subMode) override;
     virtual PowerSubMode GetDeviceSubMode() override;
     virtual std::string ShellDump(const std::vector<std::string>& args, uint32_t argc) override;
     virtual PowerErrors IsStandby(bool& isStandby) override;

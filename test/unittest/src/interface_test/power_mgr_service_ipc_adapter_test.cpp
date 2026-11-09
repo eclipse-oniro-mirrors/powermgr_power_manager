@@ -219,7 +219,7 @@ public:
     {
         return PowerMode::NORMAL_MODE;
     }
-    PowerErrors SetDeviceMode(const PowerMode& mode, const PowerSubMode& subMode)
+    PowerErrors SetDeviceSubMode(const PowerMode& mode, const PowerSubMode& subMode)
     {
         return PowerErrors::ERR_OK;
     }
