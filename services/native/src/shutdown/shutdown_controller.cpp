@@ -242,7 +242,7 @@ void ShutdownController::AddCallback(const sptr<ITakeOverShutdownCallback>& call
     takeoverShutdownCallbackHolder_->AddCallback(callback->AsObject(), priority);
     POWER_HILOGI(FEATURE_SHUTDOWN,
         "takeover shutdown callback added, priority=%{public}u, pid=%{public}d, uid=%{public}d", priority,
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 void ShutdownController::AddCallback(const sptr<IAsyncShutdownCallback>& callback, ShutdownPriority priority)
@@ -251,7 +251,7 @@ void ShutdownController::AddCallback(const sptr<IAsyncShutdownCallback>& callbac
     asyncShutdownCallbackHolder_->AddCallback(callback->AsObject(), priority);
     POWER_HILOGI(FEATURE_SHUTDOWN,
         "async shutdown callback added, priority=%{public}u, pid=%{public}d, uid=%{public}d", priority,
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 void ShutdownController::AddCallback(const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority)
@@ -260,7 +260,7 @@ void ShutdownController::AddCallback(const sptr<ISyncShutdownCallback>& callback
     syncShutdownCallbackHolder_->AddCallback(callback->AsObject(), priority);
     POWER_HILOGI(FEATURE_SHUTDOWN,
         "sync shutdown callback added, priority=%{public}u, pid=%{public}d, uid=%{public}d", priority,
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 void ShutdownController::RemoveCallback(const sptr<ITakeOverShutdownCallback>& callback)
@@ -268,7 +268,7 @@ void ShutdownController::RemoveCallback(const sptr<ITakeOverShutdownCallback>& c
     RETURN_IF(callback->AsObject() == nullptr)
     takeoverShutdownCallbackHolder_->RemoveCallback(callback->AsObject());
     POWER_HILOGI(FEATURE_SHUTDOWN, "takeover shutdown callback removed, pid=%{public}d, uid=%{public}d",
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 void ShutdownController::RemoveCallback(const sptr<IAsyncShutdownCallback>& callback)
@@ -276,7 +276,7 @@ void ShutdownController::RemoveCallback(const sptr<IAsyncShutdownCallback>& call
     RETURN_IF(callback->AsObject() == nullptr)
     asyncShutdownCallbackHolder_->RemoveCallback(callback->AsObject());
     POWER_HILOGI(FEATURE_SHUTDOWN, "async shutdown callback removed, pid=%{public}d, uid=%{public}d",
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 void ShutdownController::RemoveCallback(const sptr<ISyncShutdownCallback>& callback)
@@ -284,7 +284,7 @@ void ShutdownController::RemoveCallback(const sptr<ISyncShutdownCallback>& callb
     RETURN_IF(callback->AsObject() == nullptr)
     syncShutdownCallbackHolder_->RemoveCallback(callback->AsObject());
     POWER_HILOGI(FEATURE_SHUTDOWN, "sync shutdown callback removed, pid=%{public}d, uid=%{public}d",
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 bool ShutdownController::TriggerTakeOverShutdownCallback(const TakeOverInfo& info)

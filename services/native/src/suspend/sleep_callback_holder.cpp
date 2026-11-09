@@ -47,7 +47,7 @@ void SleepCallbackHolder::AddCallback(const sptr<ISyncSleepCallback>& callback, 
 void SleepCallbackHolder::AddCallbackPidUid(const sptr<ISyncSleepCallback>& callback)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     cachedRegister_.emplace(callback, std::make_pair(pid, uid));
 }
 

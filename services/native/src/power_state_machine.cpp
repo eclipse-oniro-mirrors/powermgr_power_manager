@@ -1195,7 +1195,7 @@ void PowerStateMachine::RegisterPowerStateCallback(const sptr<IPowerStateCallbac
         object->AddDeathRecipient(powerStateCBDeathRecipient_);
     }
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     cachedRegister_.emplace(callback, std::make_pair(pid, uid));
 }
 
@@ -1707,7 +1707,7 @@ void PowerStateMachine::SetForceTimingOut(bool enabled)
     bool isScreenOnLockActive = IsRunningLockEnabled(RunningLockType::RUNNINGLOCK_SCREEN);
     bool currentValue = forceTimingOut_.exchange(enabled);
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     PowerState curState = GetState();
     if (!enabled) {
         g_callSetForceTimingOutPid = 0;
@@ -1748,7 +1748,7 @@ void PowerStateMachine::SetForceTimingOut(bool enabled)
 void PowerStateMachine::LockScreenAfterTimingOut(bool enabled, bool checkScreenOnLock, bool sendScreenOffEvent)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     POWER_HILOGI(FEATURE_RUNNING_LOCK,
         "LockScreenAfterTimingOut: %{public}u, %{public}u, %{public}u, PID=%{public}d, UID=%{public}d",
         static_cast<uint32_t>(enabled), static_cast<uint32_t>(checkScreenOnLock),
@@ -1874,7 +1874,7 @@ bool PowerStateMachine::IsRunningLockEnabled(RunningLockType type)
 void PowerStateMachine::SetDisplayOffTime(int64_t time, bool needUpdateSetting)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     // set display off time, calling pid uid, n=needUpdateSetting, i=isScreenOffTimeOverride_
     POWER_HILOGI(FEATURE_POWER_STATE,
         "setoff T%{public}" PRId64 "->%{public}" PRId64 "P:%{public}dU:%{public}dn=%{public}di=%{public}d",

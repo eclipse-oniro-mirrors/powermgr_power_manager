@@ -31,7 +31,7 @@ bool Permission::IsHap()
 {
     AccessTokenID tokenId = IPCSkeleton::GetCallingTokenID();
     pid_t pid = IPCSkeleton::GetCallingPid();
-    pid_t uid = IPCSkeleton::GetCallingUid();
+    pid_t uid = IPCSkeleton::GetCallingAppUid();
     ATokenTypeEnum type = AccessTokenKit::GetTokenTypeFlag(tokenId);
     POWER_HILOGD(COMP_UTILS, "checking is hap calling, type=%{public}d, pid=%{public}d, uid=%{public}d",
         static_cast<int32_t>(type), pid, uid);
@@ -53,7 +53,7 @@ bool Permission::IsSystem()
 {
     AccessTokenID tokenId = IPCSkeleton::GetCallingTokenID();
     pid_t pid = IPCSkeleton::GetCallingPid();
-    pid_t uid = IPCSkeleton::GetCallingUid();
+    pid_t uid = IPCSkeleton::GetCallingAppUid();
     ATokenTypeEnum type = AccessTokenKit::GetTokenTypeFlag(tokenId);
     POWER_HILOGD(COMP_UTILS, "checking system permission, type=%{public}d, pid=%{public}d, uid=%{public}d",
         static_cast<int32_t>(type), pid, uid);
@@ -84,7 +84,7 @@ bool Permission::IsPermissionGranted(const std::string& perm)
 {
     AccessTokenID tokenId = IPCSkeleton::GetCallingTokenID();
     pid_t pid = IPCSkeleton::GetCallingPid();
-    pid_t uid = IPCSkeleton::GetCallingUid();
+    pid_t uid = IPCSkeleton::GetCallingAppUid();
     ATokenTypeEnum type = AccessTokenKit::GetTokenTypeFlag(tokenId);
     POWER_HILOGD(COMP_UTILS, "checking permission, perm=%{public}s type=%{public}d, pid=%{public}d, uid=%{public}d",
         perm.c_str(), static_cast<int32_t>(type), pid, uid);
@@ -115,7 +115,7 @@ bool Permission::IsNativePermissionGranted(const std::string& perm)
 {
     AccessTokenID tokenId = IPCSkeleton::GetCallingTokenID();
     pid_t pid = IPCSkeleton::GetCallingPid();
-    pid_t uid = IPCSkeleton::GetCallingUid();
+    pid_t uid = IPCSkeleton::GetCallingAppUid();
     ATokenTypeEnum type = AccessTokenKit::GetTokenTypeFlag(tokenId);
     POWER_HILOGD(COMP_UTILS, "checking permission, perm=%{public}s type=%{public}d, pid=%{public}d, uid=%{public}d",
         perm.c_str(), static_cast<int32_t>(type), pid, uid);

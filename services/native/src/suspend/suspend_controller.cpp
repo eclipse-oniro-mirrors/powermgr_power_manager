@@ -81,7 +81,7 @@ void SuspendController::AddCallback(const sptr<ISyncSleepCallback>& callback, Sl
     SleepCallbackHolder::GetInstance().AddCallback(callback, priority);
     POWER_HILOGI(FEATURE_SUSPEND,
         "sync sleep callback added, priority=%{public}u, pid=%{public}d, uid=%{public}d", priority,
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 void SuspendController::RemoveCallback(const sptr<ISyncSleepCallback>& callback)
@@ -90,7 +90,7 @@ void SuspendController::RemoveCallback(const sptr<ISyncSleepCallback>& callback)
     SleepCallbackHolder::GetInstance().RemoveCallback(callback);
     POWER_HILOGI(FEATURE_SUSPEND,
         "sync sleep callback removed, pid=%{public}d, uid=%{public}d",
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 #ifdef POWER_MANAGER_TAKEOVER_SUSPEND
@@ -103,7 +103,7 @@ void SuspendController::AddCallback(const sptr<ITakeOverSuspendCallback>& callba
     TakeOverSuspendCallbackHolder::GetInstance().AddCallback(callback, priority);
     POWER_HILOGI(FEATURE_SUSPEND,
         "TakeOver Suspend callback added, priority=%{public}u, pid=%{public}d, uid=%{public}d", priority,
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 
 void SuspendController::RemoveCallback(const sptr<ITakeOverSuspendCallback>& callback)
@@ -115,7 +115,7 @@ void SuspendController::RemoveCallback(const sptr<ITakeOverSuspendCallback>& cal
     TakeOverSuspendCallbackHolder::GetInstance().RemoveCallback(callback);
     POWER_HILOGI(FEATURE_SUSPEND,
         "TakeOver Suspend callback removed, pid=%{public}d, uid=%{public}d",
-        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
+        IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingAppUid());
 }
 #endif
 
@@ -627,7 +627,7 @@ void SuspendController::ControlListener(SuspendDeviceType reason, uint32_t actio
 void SuspendController::ControlListenerInner(SuspendDeviceType reason, uint32_t action, uint32_t delay)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     uint32_t ffrtId = ffrt::this_task::get_id();
     POWER_HILOGI(FEATURE_SUSPEND,
         "[UL_POWER] Try to suspend device, pid=%{public}d, uid=%{public}d, reason=%{public}d, action=%{public}u, "
@@ -1054,7 +1054,7 @@ void SuspendController::TriggerForceSuspendMemCallbacks(bool isWakeup)
             isWakeup ? "wakeup" : "sleep");
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
         pid_t pid = IPCSkeleton::GetCallingPid();
-        auto uid = IPCSkeleton::GetCallingUid();
+        auto uid = IPCSkeleton::GetCallingAppUid();
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "INTERFACE_CONSUMING_TIMEOUT",
             HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PID", pid, "UID", uid,
             "TYPE", static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_SYNC_SLEEP_CALLBACK),
