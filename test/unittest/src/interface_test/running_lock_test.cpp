@@ -34,6 +34,26 @@ constexpr int32_t TEST_PROCESS_COUNT = 2000;
 constexpr int32_t US_PER_MS = 1000;
 constexpr int32_t app0Uid = 8;
 constexpr int32_t app1Uid = 9;
+
+// Background running locks are activated through the power HDI ("/sys/power/wake_lock"),
+// which is unavailable on devices whose kernel lacks it (e.g. emulator); such devices
+// cannot hold background locks, so the related test cases should be skipped there.
+bool IsBackgroundRunningLockSupported()
+{
+    // Probe by actually holding a background lock once, and cache the result.
+    static const bool supported = [] {
+        auto lock = PowerMgrClient::GetInstance().CreateRunningLock(
+            "background.lockProbe", RunningLockType::RUNNINGLOCK_BACKGROUND);
+        if (lock == nullptr) {
+            return true; // Cannot probe; do not skip the test cases.
+        }
+        lock->Lock();
+        bool used = lock->IsUsed();
+        lock->UnLock();
+        return used;
+    }();
+    return supported;
+}
 }
 
 namespace {
@@ -179,6 +199,9 @@ HWTEST_F(RunningLockTest, RunningLockTest004, TestSize.Level1)
 HWTEST_F(RunningLockTest, RunningLockTest005, TestSize.Level1)
 {
     POWER_HILOGI(LABEL_TEST, "RunningLockTest005 function start!");
+    if (!IsBackgroundRunningLockSupported()) {
+        GTEST_SKIP() << "Background running lock is not supported on this device";
+    }
     auto& powerMgrClient = PowerMgrClient::GetInstance();
     std::shared_ptr<RunningLock> runningLock = powerMgrClient.CreateRunningLock(
         "background.test005", RunningLockType::RUNNINGLOCK_BACKGROUND);
@@ -262,6 +285,9 @@ HWTEST_F(RunningLockTest, RunningLockTest007, TestSize.Level1)
 HWTEST_F(RunningLockTest, RunningLockTest008, TestSize.Level1)
 {
     POWER_HILOGI(LABEL_TEST, "RunningLockTest008 function start!");
+    if (!IsBackgroundRunningLockSupported()) {
+        GTEST_SKIP() << "Background running lock is not supported on this device";
+    }
     auto& powerMgrClient = PowerMgrClient::GetInstance();
 
     pid_t curUid = getuid();
@@ -452,6 +478,9 @@ HWTEST_F(RunningLockTest, RunningLockTest015, TestSize.Level1)
 HWTEST_F(RunningLockTest, RunningLockTest016, TestSize.Level1)
 {
     POWER_HILOGI(LABEL_TEST, "RunningLockTest016 function start!");
+    if (!IsBackgroundRunningLockSupported()) {
+        GTEST_SKIP() << "Background running lock is not supported on this device";
+    }
     auto& powerMgrClient = PowerMgrClient::GetInstance();
 
     pid_t curUid = getuid();
@@ -478,6 +507,9 @@ HWTEST_F(RunningLockTest, RunningLockTest016, TestSize.Level1)
 HWTEST_F(RunningLockTest, RunningLockTest017, TestSize.Level1)
 {
     POWER_HILOGI(LABEL_TEST, "RunningLockTest017 function start!");
+    if (!IsBackgroundRunningLockSupported()) {
+        GTEST_SKIP() << "Background running lock is not supported on this device";
+    }
     auto& powerMgrClient = PowerMgrClient::GetInstance();
 
     pid_t curUid = getuid();
@@ -558,6 +590,9 @@ HWTEST_F(RunningLockTest, RunningLockTest019, TestSize.Level1)
 HWTEST_F (RunningLockTest, RunningLockTest020, TestSize.Level1)
 {
     POWER_HILOGI(LABEL_TEST, "RunningLockTest020 function start!");
+    if (!IsBackgroundRunningLockSupported()) {
+        GTEST_SKIP() << "Background running lock is not supported on this device";
+    }
     auto runninglockProxy = std::make_shared<RunningLockProxy>();
     auto& powerMgrClient = PowerMgrClient::GetInstance();
     std::shared_ptr<RunningLock> runningLock = powerMgrClient.CreateRunningLock("backgroudAudio.test020",
