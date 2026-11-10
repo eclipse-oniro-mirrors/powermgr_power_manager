@@ -715,7 +715,7 @@ PowerMode PowerMgrClient::GetDeviceMode()
     return static_cast<PowerMode>(powerMode);
 }
 
-PowerErrors PowerMgrClient::SetDeviceMode(const PowerMode mode, const PowerSubMode subMode)
+PowerErrors PowerMgrClient::SetDeviceSubMode(const PowerMode mode, const PowerSubMode subMode)
 {
     if (mode < PowerMode::POWER_MODE_MIN || mode > PowerMode::POWER_MODE_MAX ||
         (mode > PowerMode::EXTREME_POWER_SAVE_MODE && mode < PowerMode::POWER_MODE_MAX)) {

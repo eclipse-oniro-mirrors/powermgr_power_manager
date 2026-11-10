@@ -461,7 +461,7 @@ int32_t PowerMgrServiceAdapter::SetDeviceSubModeIpc(int32_t modeValue, int32_t s
     PowerXCollie powerXCollie("PowerMgrServiceAdapter::SetDeviceMode", false);
     PowerMode mode = static_cast<PowerMode>(modeValue);
     PowerSubMode subMode = static_cast<PowerSubMode>(subModeValue);
-    powerError = static_cast<int32_t>(SetDeviceMode(mode, subMode));
+    powerError = static_cast<int32_t>(SetDeviceSubMode(mode, subMode));
     return ERR_OK;
 }
 

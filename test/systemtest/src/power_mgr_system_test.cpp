@@ -132,19 +132,19 @@ HWTEST_F(PowerMgrSystemTest, PowerMgrSystemTest_004, TestSize.Level2)
 
 /**
  * @tc.name: PowerMgrSystemTest_005
- * @tc.desc: test SetDeviceMode and GetDeviceSubMode in proxy
+ * @tc.desc: test SetDeviceSubMode and GetDeviceSubMode in proxy
  * @tc.type: FUNC
  */
 HWTEST_F(PowerMgrSystemTest, PowerMgrSystemTest_005, TestSize.Level2)
 {
     POWER_HILOGI(LABEL_TEST, "PowerMgrSystemTest_005 function start!");
     auto& client = PowerMgrClient::GetInstance();
-    PowerErrors ret = client.SetDeviceMode(PowerMode::EXTREME_POWER_SAVE_MODE,
+    PowerErrors ret = client.SetDeviceSubMode(PowerMode::EXTREME_POWER_SAVE_MODE,
         PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
     EXPECT_EQ(ret, PowerErrors::ERR_OK);
     PowerSubMode subMode = client.GetDeviceSubMode();
     EXPECT_EQ(subMode, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
-    ret = client.SetDeviceMode(PowerMode::NORMAL_MODE,
+    ret = client.SetDeviceSubMode(PowerMode::NORMAL_MODE,
         PowerSubMode::SUB_MODE_INVALID);
     EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
     client.SetDeviceMode(PowerMode::NORMAL_MODE);
