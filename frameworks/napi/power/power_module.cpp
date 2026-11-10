@@ -127,6 +127,40 @@ static napi_value CreatePowerKeyFilteringStrategy(napi_env env, napi_value expor
     return exports;
 }
 
+static napi_value EnumInvokeModeClassConstructor(napi_env env, napi_callback_info info)
+{
+    napi_value thisArg = nullptr;
+    void* data = nullptr;
+
+    napi_get_cb_info(env, info, nullptr, nullptr, &thisArg, &data);
+
+    napi_value global = nullptr;
+    napi_get_global(env, &global);
+
+    return thisArg;
+}
+
+static napi_value CreateInvokeMode(napi_env env, napi_value exports)
+{
+    napi_value sync = nullptr;
+    napi_value async = nullptr;
+
+    napi_create_int32(env, static_cast<int32_t>(InvokeMode::SYNC), &sync);
+    napi_create_int32(env, static_cast<int32_t>(InvokeMode::ASYNC), &async);
+
+    napi_property_descriptor desc[] = {
+        DECLARE_NAPI_STATIC_PROPERTY("SYNC", sync),
+        DECLARE_NAPI_STATIC_PROPERTY("ASYNC", async),
+    };
+    napi_value result = nullptr;
+    napi_define_class(env, "InvokeMode", NAPI_AUTO_LENGTH, EnumInvokeModeClassConstructor,
+        nullptr, sizeof(desc) / sizeof(*desc), desc, &result);
+
+    napi_set_named_property(env, exports, "InvokeMode", result);
+
+    return exports;
+}
+
 EXTERN_C_START
 /*
  * function for module exports
@@ -164,6 +198,7 @@ static napi_value PowerInit(napi_env env, napi_value exports)
     CreateDevicePowerMode(env, exports);
     CreateDevicePowerSubMode(env, exports);
     CreatePowerKeyFilteringStrategy(env, exports);
+    CreateInvokeMode(env, exports);
     POWER_HILOGD(COMP_FWK, "The initialization of the Power module is complete");
 
     return exports;

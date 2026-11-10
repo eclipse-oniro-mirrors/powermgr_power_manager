@@ -18,6 +18,87 @@
 @!sts_inject("""
 static { loadLibraryWithPermissionCheck("power_manager_taihe_native.z", "@ohos.power") }""")
 
+@!sts_inject("""
+function throwParamError(): void {
+    throw new _taihe_BusinessError(401, "Invalid input parameter.");
+}
+
+export function shutdown(reason: string, mode: InvokeMode): void | Promise<void> {
+    if (mode == InvokeMode.SYNC) {
+        return shutdown(reason);
+    }
+    if (mode != InvokeMode.ASYNC) {
+        throwParamError();
+    }
+    return new Promise<void>((resolve, reject): void => {
+        launch() {
+            try {
+                shutdown(reason);
+                resolve(undefined);
+            } catch (err) {
+                reject(err as Error);
+            }
+        }
+    });
+}
+
+export function reboot(reason: string, mode: InvokeMode): void | Promise<void> {
+    if (mode == InvokeMode.SYNC) {
+        return reboot(reason);
+    }
+    if (mode != InvokeMode.ASYNC) {
+        throwParamError();
+    }
+    return new Promise<void>((resolve, reject): void => {
+        launch() {
+            try {
+                reboot(reason);
+                resolve(undefined);
+            } catch (err) {
+                reject(err as Error);
+            }
+        }
+    });
+}
+
+export function wakeup(detail: string, mode: InvokeMode): void | Promise<void> {
+    if (mode == InvokeMode.SYNC) {
+        return wakeup(detail);
+    }
+    if (mode != InvokeMode.ASYNC) {
+        throwParamError();
+    }
+    return new Promise<void>((resolve, reject): void => {
+        launch() {
+            try {
+                wakeup(detail);
+                resolve(undefined);
+            } catch (err) {
+                reject(err as Error);
+            }
+        }
+    });
+}
+
+export function suspend(isImmediate: boolean | undefined, mode: InvokeMode): void | Promise<void> {
+    if (mode == InvokeMode.SYNC) {
+        return suspend(isImmediate);
+    }
+    if (mode != InvokeMode.ASYNC) {
+        throwParamError();
+    }
+    return new Promise<void>((resolve, reject): void => {
+        launch() {
+            try {
+                suspend(isImmediate);
+                resolve(undefined);
+            } catch (err) {
+                reject(err as Error);
+            }
+        }
+    });
+}""")
+
 union MyUndefined { @undefined Undefined; }
 
 function Shutdown(reason: String): void;
@@ -76,4 +157,9 @@ enum DevicePowerSubMode : i32 {
 enum PowerKeyFilteringStrategy : i32 {
   DISABLE_LONG_PRESS_FILTERING = 0,
   LONG_PRESS_FILTERING_ONCE = 1
+}
+
+enum InvokeMode : i32 {
+  SYNC = 0,
+  ASYNC = 1
 }
