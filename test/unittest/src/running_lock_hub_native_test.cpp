@@ -17,6 +17,7 @@
 
 #include <fcntl.h>
 #include <ipc_skeleton.h>
+#include <unistd.h>
 
 #include <datetime_ex.h>
 #ifdef HAS_MULTIMODALINPUT_INPUT_PART
@@ -80,8 +81,14 @@ HWTEST_F(RunningLockHubNativeTest, RunningLockNative002, TestSize.Level1)
     SuspendController->Suspend(RunningSuspendCallback, RunningSuspendCallback, false);
     SuspendController->Suspend(RunningSuspendCallback, RunningSuspendCallback, false);
     EXPECT_FALSE(SuspendController->suspend_->WriteWakeupCount("77"));
+    // Use a writable temp file instead of the kernel node "/sys/power/wake_lock"
+    // (RunningLockHub::LOCK_PATH), which is missing on kernels without CONFIG_PM_WAKELOCKS
+    // (e.g. emulator). The file is unlinked right after opening; the fd stays valid.
+    const char *wakeupCountTmpPath = "/data/local/tmp/powermgr_wakeup_count_test";
+    unlink(wakeupCountTmpPath);
     SuspendController->suspend_->wakeupCountFd =
-        UniqueFd(TEMP_FAILURE_RETRY(open(Suspend::RunningLockHub::LOCK_PATH, O_RDWR | O_CLOEXEC)));
+        UniqueFd(TEMP_FAILURE_RETRY(open(wakeupCountTmpPath, O_RDWR | O_CREAT | O_CLOEXEC, 0644)));
+    unlink(wakeupCountTmpPath);
     EXPECT_TRUE(SuspendController->suspend_->WriteWakeupCount("77"));
     SuspendController->IncSuspendBlockCounter();
     SuspendController->IncSuspendBlockCounter();

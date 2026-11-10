@@ -19,6 +19,7 @@
 #include "power_utils.h"
 
 #include "actions/irunning_lock_action.h"
+#include "mock_lock_action.h"
 #include "running_lock_changed_callback_stub.h"
 #include "death_recipient_manager.h"
 
@@ -851,6 +852,7 @@ HWTEST_F(RunningLockNativeTest, RunningLockNative027, TestSize.Level1)
     auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
     pmsTest->OnStart();
     auto runningLockMgr = pmsTest->GetRunningLockMgr();
+    runningLockMgr->EnableMock(new ::testing::NiceMock<MockLockAction>());
     sptr<IRemoteObject> remoteObj = new RunningLockTokenStub();
     sptr<IRemoteObject> remoteObjToken = new RunningLockTokenStub();
     int32_t pid = IPCSkeleton::GetCallingPid();
@@ -901,6 +903,7 @@ HWTEST_F(RunningLockNativeTest, RunningLockNative028, TestSize.Level1)
     auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
     auto runningLockMgr = std::make_shared<RunningLockMgr>(pmsTest);
     EXPECT_TRUE(runningLockMgr->Init());
+    runningLockMgr->EnableMock(new ::testing::NiceMock<MockLockAction>());
     sptr<IRemoteObject> remoteObj = new RunningLockTokenStub();
     int32_t pid = IPCSkeleton::GetCallingPid();
     int32_t uid = IPCSkeleton::GetCallingUid();
