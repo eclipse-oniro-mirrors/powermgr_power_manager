@@ -22,6 +22,7 @@
 
 #include "power_log.h"
 #include "power_mgr_client.h"
+#include "client_lifecycle.h"
 #define private public
 #include "power_mgr_service.h"
 #undef private
@@ -29,6 +30,22 @@
 
 #include "mock_power_action.h"
 #include "mock_state_action.h"
+
+namespace OHOS {
+namespace PowerMgr {
+sptr<IPowerMgr> g_proxyForClient;
+
+sptr<IPowerMgr> PowerMgrClient::GetPowerMgrProxy()
+{
+    return g_proxyForClient;
+}
+
+sptr<IPowerMgr> ClientLifeCycle::GetProxy()
+{
+    return g_proxyForClient;
+}
+} // namespace PowerMgr
+} // namespace OHOS
 
 namespace OHOS {
 namespace PowerMgr {
@@ -57,6 +74,7 @@ void ParallelShutdownCallbackTest::SetUpTestCase()
 {
     g_service = DelayedSpSingleton<PowerMgrService>::GetInstance();
     g_service->OnStart();
+    g_proxyForClient = g_service;
 }
 
 void ParallelShutdownCallbackTest::TearDownTestCase()
@@ -122,6 +140,14 @@ void ParallelShutdownCallbackTest::NoVoteParallelShutdownCallback::OnParallelShu
 {
     g_noVoteCallbackCalled = true;
     g_noVoteIdentity.store(identity);
+}
+
+void ParallelShutdownCallbackTest::ClientPathCallback::OnParallelShutdownOrReboot(
+    bool isReboot, uint64_t identity)
+{
+    g_callback1Called = true;
+    g_voteCount++;
+    ShutdownClient::GetInstance().VoteShutdown(identity);
 }
 
 /**
@@ -349,6 +375,34 @@ HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownVote005, TestSize.Level1)
     EXPECT_FALSE(g_callback1Called);
     EXPECT_FALSE(g_noVoteCallbackCalled);
     POWER_HILOGI(LABEL_TEST, "ParallelShutdownVote005 function end!");
+}
+
+/**
+ * @tc.name: ParallelShutdownClientPath001
+ * @tc.desc: Test full client->adapter->service path for register/vote/unregister
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParallelShutdownCallbackTest, ParallelShutdownClientPath001, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownClientPath001 function start!");
+    auto callback = new ClientPathCallback();
+
+    ShutdownClient::GetInstance().RegisterShutdownCallback(callback);
+    g_registeredCallbacks.push_back(callback->AsObject());
+
+    EXPECT_CALL(*g_mockPowerAction, Reboot(std::string("test_case"))).Times(::testing::AtLeast(1));
+    g_service->RebootDevice("test_case");
+
+    auto shutdownController = g_service->GetShutdownController();
+    while (shutdownController->started_) {
+        std::this_thread::yield();
+    }
+    EXPECT_TRUE(g_callback1Called);
+    EXPECT_EQ(g_voteCount.load(), 1);
+
+    ShutdownClient::GetInstance().UnRegisterShutdownCallback(callback);
+    g_registeredCallbacks.clear();
+    POWER_HILOGI(LABEL_TEST, "ParallelShutdownClientPath001 function end!");
 }
 } // namespace UnitTest
 } // namespace PowerMgr
