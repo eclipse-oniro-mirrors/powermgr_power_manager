@@ -164,34 +164,45 @@ PowerErrors ShutdownController::RebootOrShutdown(const std::string& reason, bool
     if (force) {
         // only two threads are allowed, next time it blocks
         // either block or thread leak. since the previous action is shutdown, block is safer than thread leak
-        TriggerParallelShutdownCallback(isReboot);
-        g_futForSyncCb = async(launch::async, [this, isReboot] {
-            TriggerSyncShutdownCallback(isReboot);
-            OnSerialDone();
-        });
-        g_futForSyncCb.wait_for(CALLBACK_TIMEOUT);
+        TriggerShutdownCallbacks(isReboot, true);
         actionTimeStr = actionTimeStr + "," + std::to_string(GetCurrentRealTimeMs());
         g_futForOff = async(launch::async, &ShutdownController::TurnOffScreen, this);
         g_futForOff.wait_for(OFF_TIMEOUT);
     } else {
-        TriggerParallelShutdownCallback(isReboot);
-        DispatchSerialShutdownCallback(isReboot);
+        TriggerShutdownCallbacks(isReboot, false);
         actionTimeStr = actionTimeStr + "," + std::to_string(GetCurrentRealTimeMs());
         TurnOffScreen();
     }
     actionTimeStr = actionTimeStr + "," + std::to_string(GetCurrentRealTimeMs());
     system::SetParameter("persist.dfx.shutdownactiontime", actionTimeStr);
-    make_unique<thread>([=] {
-        Prepare(isReboot);
-        POWER_KHILOGI(FEATURE_SHUTDOWN, "reason = %{public}s, reboot = %{public}d", reason.c_str(), isReboot);
-        if (devicePowerAction_ != nullptr) {
-            std::string shutdownDeviceTime = std::to_string(GetCurrentRealTimeMs());
-            system::SetParameter("persist.dfx.shutdowncompletetime", shutdownDeviceTime);
-            isReboot ? devicePowerAction_->Reboot(reason) : devicePowerAction_->Shutdown(reason);
-        }
-        started_ = false;
-    })->detach();
+    make_unique<thread>([=] { ExecuteShutdownAction(reason, isReboot); })->detach();
     return PowerErrors::ERR_OK;
+}
+
+void ShutdownController::ExecuteShutdownAction(const std::string& reason, bool isReboot)
+{
+    Prepare(isReboot);
+    POWER_KHILOGI(FEATURE_SHUTDOWN, "reason = %{public}s, reboot = %{public}d", reason.c_str(), isReboot);
+    if (devicePowerAction_ != nullptr) {
+        std::string shutdownDeviceTime = std::to_string(GetCurrentRealTimeMs());
+        system::SetParameter("persist.dfx.shutdowncompletetime", shutdownDeviceTime);
+        isReboot ? devicePowerAction_->Reboot(reason) : devicePowerAction_->Shutdown(reason);
+    }
+    started_ = false;
+}
+
+void ShutdownController::TriggerShutdownCallbacks(bool isReboot, bool force)
+{
+    TriggerParallelShutdownCallback(isReboot);
+    if (force) {
+        g_futForSyncCb = async(launch::async, [this, isReboot] {
+            TriggerSyncShutdownCallback(isReboot);
+            OnSerialDone();
+        });
+        g_futForSyncCb.wait_for(CALLBACK_TIMEOUT);
+    } else {
+        DispatchSerialShutdownCallback(isReboot);
+    }
 }
 
 void ShutdownController::Prepare(bool isReboot)

@@ -75,6 +75,8 @@ public:
 private:
     using IntentWant = OHOS::AAFwk::Want;
     PowerErrors RebootOrShutdown(const std::string& reason, bool isReboot, bool force = false);
+    void TriggerShutdownCallbacks(bool isReboot, bool force);
+    void ExecuteShutdownAction(const std::string& reason, bool isReboot);
     void Prepare(bool isReboot);
     void TurnOffScreen();
     void PublishShutdownEvent() const;
