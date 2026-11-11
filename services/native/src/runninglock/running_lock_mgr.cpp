@@ -368,7 +368,7 @@ std::shared_ptr<RunningLockInner> RunningLockMgr::CreateRunningLock(const sptr<I
     if (lockInner == nullptr) {
         return nullptr;
     }
-    POWER_HILOGI(FEATURE_RUNNING_LOCK, "CrtN:%{public}s,T:%{public}d",
+    POWER_HILOGD(FEATURE_RUNNING_LOCK, "CrtN:%{public}s,T:%{public}d",
         lockInner->GetName().c_str(), lockInner->GetType());
     {
         std::lock_guard<ffrt::mutex> lock(mutex_);
@@ -394,7 +394,7 @@ bool RunningLockMgr::ReleaseLock(const sptr<IRemoteObject> remoteObj, const std:
         }
     }
     // ReleaseLock name type bundleName
-    POWER_HILOGI(FEATURE_RUNNING_LOCK, "RlsN:%{public}s,T:%{public}d,B:%{public}s",
+    POWER_HILOGD(FEATURE_RUNNING_LOCK, "RlsN:%{public}s,T:%{public}d,B:%{public}s",
         lockInner->GetName().c_str(), lockInner->GetType(), lockInner->GetBundleName().c_str());
     UnLock(remoteObj);
     {
