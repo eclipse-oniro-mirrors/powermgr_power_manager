@@ -114,21 +114,24 @@ void ParallelShutdownCallbackTest::TearDown()
     shutdownController->EnableMock(nullptr, nullptr);
 }
 
-void ParallelShutdownCallbackTest::ParallelShutdownCallback::OnParallelShutdownOrReboot(bool isReboot, uint64_t identity)
+void ParallelShutdownCallbackTest::ParallelShutdownCallback::OnParallelShutdownOrReboot(
+    bool isReboot, uint64_t identity)
 {
     g_callback1Called = true;
     g_voteCount++;
     g_service->GetShutdownController()->VoteCallback(identity);
 }
 
-void ParallelShutdownCallbackTest::ParallelShutdownCallback2::OnParallelShutdownOrReboot(bool isReboot, uint64_t identity)
+void ParallelShutdownCallbackTest::ParallelShutdownCallback2::OnParallelShutdownOrReboot(
+    bool isReboot, uint64_t identity)
 {
     g_callback2Called = true;
     g_voteCount++;
     g_service->GetShutdownController()->VoteCallback(identity);
 }
 
-void ParallelShutdownCallbackTest::ParallelShutdownCallback3::OnParallelShutdownOrReboot(bool isReboot, uint64_t identity)
+void ParallelShutdownCallbackTest::ParallelShutdownCallback3::OnParallelShutdownOrReboot(
+    bool isReboot, uint64_t identity)
 {
     g_callback3Called = true;
     g_voteCount++;
