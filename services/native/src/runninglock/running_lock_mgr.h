@@ -57,6 +57,7 @@ struct RunningLockKeyEqual {
         return lhs == rhs;
     }
 };
+
 using RunningLockMap = std::unordered_map<sptr<IRemoteObject>, std::shared_ptr<RunningLockInner>,
     RunningLockKeyHash, RunningLockKeyEqual>;
 
