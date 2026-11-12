@@ -61,9 +61,20 @@ enum class InvokeModeAction {
 
 static InvokeModeAction ParseInvokeMode(napi_env env, napi_value value)
 {
+    napi_valuetype valueType = napi_undefined;
+    if (napi_typeof(env, value, &valueType) != napi_ok) {
+        return InvokeModeAction::INVALID;
+    }
+    // An omitted, undefined or null mode falls back to the default SYNC behavior.
+    if (valueType == napi_undefined || valueType == napi_null) {
+        return InvokeModeAction::SYNC;
+    }
     uint32_t invokeMode = 0;
-    if (!NapiUtils::CheckValueType(env, value, napi_number) ||
-        napi_get_value_uint32(env, value, &invokeMode) != napi_ok) {
+    if (valueType != napi_number) {
+        POWER_HILOGW(COMP_FWK, "Parameter type error");
+        return InvokeModeAction::INVALID;
+    }
+    if (napi_get_value_uint32(env, value, &invokeMode) != napi_ok) {
         return InvokeModeAction::INVALID;
     }
     if (invokeMode == static_cast<uint32_t>(InvokeMode::ASYNC)) {
