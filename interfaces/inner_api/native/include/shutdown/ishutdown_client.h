@@ -37,10 +37,10 @@ public:
         const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority) = 0;
     virtual void UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback) = 0;
 
-    virtual void RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
-    virtual void UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
+    virtual PowerErrors RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
+    virtual PowerErrors UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
 
-    virtual void VoteShutdown(uint64_t identity) = 0;
+    virtual PowerErrors VoteShutdown(uint64_t identity) = 0;
 };
 } // namespace PowerMgr
 } // namespace OHOS

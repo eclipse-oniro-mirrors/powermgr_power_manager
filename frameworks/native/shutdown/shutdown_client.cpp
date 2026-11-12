@@ -71,22 +71,25 @@ void ShutdownClient::UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback
     proxy_->UnRegisterShutdownCallbackIpc(callback);
 }
 
-void ShutdownClient::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+PowerErrors ShutdownClient::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF(Connect() != ERR_OK);
+    RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
     proxy_->RegisterShutdownCallbackIpc(callback);
+    return PowerErrors::ERR_OK;
 }
 
-void ShutdownClient::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+PowerErrors ShutdownClient::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF(Connect() != ERR_OK);
+    RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
     proxy_->UnRegisterShutdownCallbackIpc(callback);
+    return PowerErrors::ERR_OK;
 }
 
-void ShutdownClient::VoteShutdown(uint64_t identity)
+PowerErrors ShutdownClient::VoteShutdown(uint64_t identity)
 {
-    RETURN_IF(Connect() != ERR_OK);
+    RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
     proxy_->VoteShutdownIpc(identity);
+    return PowerErrors::ERR_OK;
 }
 } // namespace PowerMgr
 } // namespace OHOS

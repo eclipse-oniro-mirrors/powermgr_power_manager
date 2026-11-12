@@ -63,14 +63,12 @@ public:
     void RemoveCallback(const sptr<ISyncShutdownCallback>& callback);
     void RemoveCallback(const sptr<IParallelShutdownCallback>& callback);
     void VoteCallback(uint64_t identity);
-    void OnSerialDone();
 
     bool TriggerTakeOverShutdownCallback(const TakeOverInfo& info);
     bool TriggerTakeOverHibernateCallback(const TakeOverInfo& info);
     void TriggerAsyncShutdownCallback(bool isReboot);
     void TriggerSyncShutdownCallback(bool isReboot);
     void TriggerParallelShutdownCallback(bool isReboot);
-    void DispatchSerialShutdownCallback(bool isReboot);
 
 private:
     using IntentWant = OHOS::AAFwk::Want;

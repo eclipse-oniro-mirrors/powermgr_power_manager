@@ -91,11 +91,11 @@ public:
      */
     void UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback);
 
-    void RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback);
+    PowerErrors RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback);
 
-    void UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback);
+    PowerErrors UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback);
 
-    void VoteShutdown(uint64_t identity);
+    PowerErrors VoteShutdown(uint64_t identity);
 
 private:
     ErrCode Connect();
