@@ -737,15 +737,14 @@ PowerErrors PowerMgrClient::SetDeviceSubMode(const PowerMode mode, const PowerSu
     return static_cast<PowerErrors>(powerError);
 }
 
-PowerSubMode PowerMgrClient::GetDeviceSubMode()
+PowerErrors PowerMgrClient::GetDeviceSubMode(PowerSubMode& subMode)
 {
     sptr<IPowerMgr> proxy = GetPowerMgrProxy();
-    if (proxy == nullptr) {
-        return PowerSubMode::SUB_MODE_INVALID;
-    }
+    RETURN_IF_WITH_RET(proxy == nullptr, PowerErrors::ERR_CONNECTION_FAIL);
     int32_t powerSubMode = static_cast<int32_t>(PowerSubMode::SUB_MODE_INVALID);
     proxy->GetDeviceSubModeIpc(powerSubMode);
-    return static_cast<PowerSubMode>(powerSubMode);
+    subMode = static_cast<PowerSubMode>(powerSubMode);
+    return PowerErrors::ERR_OK;
 }
 
 PowerErrors PowerMgrClient::GetPowerConfig(const std::string& sceneName, std::string& configVal)

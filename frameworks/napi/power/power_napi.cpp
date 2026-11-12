@@ -314,6 +314,15 @@ napi_value PowerNapi::SetPowerMode(napi_env env, napi_callback_info info)
         return SetPowerSubMode(env, info);
     }
 
+    if (argc == SET_MODE_SUBMODE_ARGC) {
+        napi_valuetype subModeType = napi_undefined;
+        napi_typeof(env, argv[INDEX_1], &subModeType);
+        if (subModeType == napi_undefined || subModeType == napi_null) {
+            POWER_HILOGD(FEATURE_POWER_MODE, "subMode is null/undefined, fallback to single-param");
+            argc = SET_MODE_PROMISE_MAX_ARGC;
+        }
+    }
+
     std::unique_ptr<AsyncCallbackInfo> asyncInfo = std::make_unique<AsyncCallbackInfo>();
     RETURN_IF_WITH_RET(asyncInfo == nullptr, nullptr);
     if (argc == SET_MODE_CALLBACK_MAX_ARGC) {
@@ -365,10 +374,15 @@ napi_value PowerNapi::SetPowerSubMode(napi_env env, napi_callback_info info)
 
 napi_value PowerNapi::GetPowerSubMode(napi_env env, napi_callback_info info)
 {
-    PowerSubMode subMode = g_powerMgrClient.GetDeviceSubMode();
-    napi_value napiSubMode;
-    NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(subMode), &napiSubMode));
-    return napiSubMode;
+    PowerSubMode subMode = PowerSubMode::SUB_MODE_INVALID;
+    PowerErrors code = g_powerMgrClient.GetDeviceSubMode(subMode);
+    if (code == PowerErrors::ERR_OK) {
+        napi_value napiSubMode;
+        NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(subMode), &napiSubMode));
+        return napiSubMode;
+    }
+    NapiErrors error;
+    return error.ThrowError(env, code);
 }
 
 napi_value PowerNapi::GetPowerConfig(napi_env env, napi_callback_info info)

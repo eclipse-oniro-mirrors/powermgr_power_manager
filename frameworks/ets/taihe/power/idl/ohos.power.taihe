@@ -120,7 +120,7 @@ function GetPowerMode(): DevicePowerMode;
  function GetPowerSubMode(): DevicePowerSubMode;
 
  @gen_promise("setPowerMode")
- function SetPowerSubModeSync(mode: DevicePowerMode, subMode: DevicePowerSubMode): void;
+ function SetPowerSubModeSync(mode: DevicePowerMode, @optional subMode: Optional<DevicePowerSubMode>): void;
 
 function IsStandby(): bool;
 

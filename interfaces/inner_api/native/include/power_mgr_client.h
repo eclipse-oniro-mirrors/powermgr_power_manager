@@ -211,10 +211,11 @@ public:
     /**
      * Get the device mode and sub mode.
      *
-     * @param mode The output mode the device.
      * @param subMode The output sub mode the device.
+     * @return PowerErrors Error code. Returns ERR_OK on success,
+     *         ERR_CONNECTION_FAIL when the service is unavailable.
      */
-    PowerSubMode GetDeviceSubMode();
+    PowerErrors GetDeviceSubMode(PowerSubMode& subMode);
 
     /**
      * Get power config by scene name.
