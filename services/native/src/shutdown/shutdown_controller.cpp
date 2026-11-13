@@ -24,6 +24,7 @@
 #include "parameters.h"
 
 #include <algorithm>
+#include <cinttypes>
 #include <common_event_data.h>
 #include <common_event_manager.h>
 #include <common_event_publish_info.h>
@@ -45,6 +46,9 @@ using namespace std;
 
 namespace OHOS {
 namespace PowerMgr {
+
+std::atomic<uint64_t> ShutdownController::nextIdentity_{1};
+
 namespace {
 constexpr std::chrono::seconds CALLBACK_TIMEOUT = 10s;
 constexpr std::chrono::seconds OFF_TIMEOUT = 5s;
@@ -304,7 +308,8 @@ void ShutdownController::RemoveCallback(const sptr<ISyncShutdownCallback>& callb
 
 void ShutdownController::AddCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF(callback->AsObject() == nullptr)
+    RETURN_IF(callback == nullptr);
+    RETURN_IF(callback->AsObject() == nullptr);
     parallelShutdownCallbackHolder_->AddCallback(callback->AsObject(), ShutdownPriority::DEFAULT);
     POWER_HILOGI(FEATURE_SHUTDOWN,
         "parallel shutdown callback added, pid=%{public}d, uid=%{public}d",
@@ -313,7 +318,8 @@ void ShutdownController::AddCallback(const sptr<IParallelShutdownCallback>& call
 
 void ShutdownController::RemoveCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF(callback->AsObject() == nullptr)
+    RETURN_IF(callback == nullptr);
+    RETURN_IF(callback->AsObject() == nullptr);
     parallelShutdownCallbackHolder_->RemoveCallback(callback->AsObject());
     POWER_HILOGI(FEATURE_SHUTDOWN, "parallel shutdown callback removed, pid=%{public}d, uid=%{public}d",
         IPCSkeleton::GetCallingPid(), IPCSkeleton::GetCallingUid());
@@ -324,16 +330,17 @@ void ShutdownController::VoteCallback(uint64_t identity)
     POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel shutdown vote received, pid=%{public}d",
         IPCSkeleton::GetCallingPid());
     bool found = false;
+    int32_t remaining = 0;
     {
         std::lock_guard<std::mutex> lock(identityMutex_);
         auto it = identityMap_.find(identity);
         if (it != identityMap_.end()) {
             identityMap_.erase(it);
+            remaining = --pendingVoteCount_;
             found = true;
         }
     }
     if (found) {
-        int32_t remaining = --pendingVoteCount_;
         if (remaining <= 0) {
             POWER_KHILOGI(FEATURE_SHUTDOWN, "All parallel votes received, marking parallelDone");
             completionTracker_.MarkParallelDone();
@@ -510,47 +517,42 @@ void ShutdownController::TriggerParallelShutdownCallback(bool isReboot)
 {
     auto allCallbacks = parallelShutdownCallbackHolder_->GetDefaultPriorityCallbacks();
     completionTracker_.Reset();
+    std::vector<std::pair<sptr<IRemoteObject>, uint64_t>> triggerList;
     {
         std::lock_guard<std::mutex> lock(identityMutex_);
         identityMap_.clear();
         for (const auto& obj : allCallbacks) {
-            uint64_t identity = std::hash<IRemoteObject*>{}(obj.GetRefPtr());
             auto callback = iface_cast<IParallelShutdownCallback>(obj);
             if (callback == nullptr) {
                 continue;
             }
+            uint64_t identity = nextIdentity_.fetch_add(1, std::memory_order_relaxed);
             if (identityMap_.find(identity) != identityMap_.end()) {
-                POWER_HILOGW(FEATURE_SHUTDOWN, "Identity hash collision detected, skipping duplicate callback");
+                POWER_HILOGW(FEATURE_SHUTDOWN, "Identity collision detected, skipping duplicate callback");
                 continue;
             }
             identityMap_[identity] = callback;
+            triggerList.emplace_back(obj, identity);
         }
         pendingVoteCount_ = static_cast<int32_t>(identityMap_.size());
     }
     POWER_KHILOGI(FEATURE_SHUTDOWN, "TriggerParallelShutdownCallback count=%{public}zu", allCallbacks.size());
-    TriggerParallelShutdownCallbackInner(allCallbacks, isReboot);
+    for (const auto& [obj, identity] : triggerList) {
+        auto pidUid = parallelShutdownCallbackHolder_->FindCallbackPidUid(obj);
+        sptr<IParallelShutdownCallback> callback = iface_cast<IParallelShutdownCallback>(obj);
+        if (callback != nullptr) {
+            POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel Shutdown Callback pid=%{public}d", pidUid.first);
+            callback->OnParallelShutdownOrReboot(isReboot, identity);
+        }
+    }
     if (pendingVoteCount_.load() == 0) {
         completionTracker_.MarkParallelDone();
     }
 }
 
-void ShutdownController::TriggerParallelShutdownCallbackInner(
-    std::set<sptr<IRemoteObject>>& callbacks, bool isReboot)
-{
-    for (const auto& obj : callbacks) {
-        auto pidUid = parallelShutdownCallbackHolder_->FindCallbackPidUid(obj);
-        sptr<IParallelShutdownCallback> callback = iface_cast<IParallelShutdownCallback>(obj);
-        if (callback != nullptr) {
-            uint64_t identity = std::hash<IRemoteObject*>{}(obj.GetRefPtr());
-            POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel Shutdown Callback pid=%{public}d",
-                pidUid.first);
-            callback->OnParallelShutdownOrReboot(isReboot, identity);
-        }
-    }
-}
-
 void ShutdownController::CompletionTracker::Reset()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     parallelDone_ = false;
     serialDone_ = false;
 }

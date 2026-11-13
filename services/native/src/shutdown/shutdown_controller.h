@@ -87,7 +87,6 @@ private:
         std::set<sptr<IRemoteObject>>& callbacks, const TakeOverInfo& info);
     void TriggerAsyncShutdownCallbackInner(std::set<sptr<IRemoteObject>>& callbacks, bool isReboot);
     void TriggerSyncShutdownCallbackInner(std::set<sptr<IRemoteObject>>& callbacks, bool isReboot);
-    void TriggerParallelShutdownCallbackInner(std::set<sptr<IRemoteObject>>& callbacks, bool isReboot);
     void SetShutdownReason(const std::string& reason);
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
     bool ReportDoShutdown();
@@ -117,6 +116,7 @@ private:
     std::unordered_map<uint64_t, sptr<IParallelShutdownCallback>> identityMap_;
     std::mutex identityMutex_;
     std::atomic<int32_t> pendingVoteCount_{0};
+    static std::atomic<uint64_t> nextIdentity_;
 
     std::atomic<bool> started_;
     std::unique_ptr<IDevicePowerAction> devicePowerAction_;
