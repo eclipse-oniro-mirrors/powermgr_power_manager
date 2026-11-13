@@ -108,9 +108,9 @@ interface OHOS.PowerMgr.IPowerMgr {
     void RegisterShutdownCallbackIpc([in] ISyncShutdownCallback powerCallback, [in] int priorityValue);
     void UnRegisterShutdownCallbackIpc([in] ISyncShutdownCallback powerCallback);
 
-    void RegisterShutdownCallbackIpc([in] IParallelShutdownCallback powerCallback);
-    void UnRegisterShutdownCallbackIpc([in] IParallelShutdownCallback powerCallback);
-    void VoteShutdownIpc([in] unsigned long identity);
+    void RegisterShutdownCallbackIpc([in] IParallelShutdownCallback powerCallback, [out] int powerError);
+    void UnRegisterShutdownCallbackIpc([in] IParallelShutdownCallback powerCallback, [out] int powerError);
+    void VoteShutdownIpc([in] unsigned long identity, [out] int powerError);
 
     void RegisterRunningLockCallbackIpc([in] IPowerRunninglockCallback powerCallback);
     void UnRegisterRunningLockCallbackIpc([in] IPowerRunninglockCallback powerCallback);

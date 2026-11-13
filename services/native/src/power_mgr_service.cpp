@@ -2520,30 +2520,48 @@ void PowerMgrService::UnRegisterShutdownCallback(const sptr<ISyncShutdownCallbac
     shutdownController_->RemoveCallback(callback);
 }
 
-void PowerMgrService::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+PowerErrors PowerMgrService::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF (callback == nullptr);
-    RETURN_IF (!Permission::IsSystem());
+    if (callback == nullptr) {
+        POWER_HILOGW(FEATURE_SHUTDOWN, "RegisterShutdownCallback parallel callback is null");
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    if (!Permission::IsSystem()) {
+        POWER_HILOGW(FEATURE_SHUTDOWN, "RegisterShutdownCallback parallel failed, System permission intercept");
+        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    }
 
     std::lock_guard lock(shutdownMutex_);
     shutdownController_->AddCallback(callback);
+    return PowerErrors::ERR_OK;
 }
 
-void PowerMgrService::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+PowerErrors PowerMgrService::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF (callback == nullptr);
-    RETURN_IF (!Permission::IsSystem());
+    if (callback == nullptr) {
+        POWER_HILOGW(FEATURE_SHUTDOWN, "UnRegisterShutdownCallback parallel callback is null");
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    if (!Permission::IsSystem()) {
+        POWER_HILOGW(FEATURE_SHUTDOWN, "UnRegisterShutdownCallback parallel failed, System permission intercept");
+        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    }
 
     std::lock_guard lock(shutdownMutex_);
     shutdownController_->RemoveCallback(callback);
+    return PowerErrors::ERR_OK;
 }
 
-void PowerMgrService::VoteShutdown(uint64_t identity)
+PowerErrors PowerMgrService::VoteShutdown(uint64_t identity)
 {
-    RETURN_IF (!Permission::IsSystem());
+    if (!Permission::IsSystem()) {
+        POWER_HILOGW(FEATURE_SHUTDOWN, "VoteShutdown failed, System permission intercept");
+        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    }
 
     std::lock_guard lock(shutdownMutex_);
     shutdownController_->VoteCallback(identity);
+    return PowerErrors::ERR_OK;
 }
 
 PowerMgrService::BackgroundRunningLock::BackgroundRunningLock(std::string name, int32_t timeOutMs)

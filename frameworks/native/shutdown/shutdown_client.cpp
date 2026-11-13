@@ -74,22 +74,25 @@ void ShutdownClient::UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback
 PowerErrors ShutdownClient::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
     RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
-    proxy_->RegisterShutdownCallbackIpc(callback);
-    return PowerErrors::ERR_OK;
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_OK);
+    proxy_->RegisterShutdownCallbackIpc(callback, powerError);
+    return static_cast<PowerErrors>(powerError);
 }
 
 PowerErrors ShutdownClient::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
     RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
-    proxy_->UnRegisterShutdownCallbackIpc(callback);
-    return PowerErrors::ERR_OK;
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_OK);
+    proxy_->UnRegisterShutdownCallbackIpc(callback, powerError);
+    return static_cast<PowerErrors>(powerError);
 }
 
 PowerErrors ShutdownClient::VoteShutdown(uint64_t identity)
 {
     RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
-    proxy_->VoteShutdownIpc(identity);
-    return PowerErrors::ERR_OK;
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_OK);
+    proxy_->VoteShutdownIpc(identity, powerError);
+    return static_cast<PowerErrors>(powerError);
 }
 } // namespace PowerMgr
 } // namespace OHOS

@@ -24,7 +24,6 @@
 #include "parameters.h"
 
 #include <algorithm>
-#include <cinttypes>
 #include <common_event_data.h>
 #include <common_event_manager.h>
 #include <common_event_publish_info.h>
@@ -194,15 +193,15 @@ void ShutdownController::ExecuteShutdownAction(const std::string& reason, bool i
 void ShutdownController::TriggerShutdownCallbacks(bool isReboot, bool force)
 {
     TriggerParallelShutdownCallback(isReboot);
-    if (force) {
-        g_futForSyncCb = async(launch::async, [this, isReboot] {
-            TriggerSyncShutdownCallback(isReboot);
-            completionTracker_.MarkSerialDone();
-        });
-        g_futForSyncCb.wait_for(CALLBACK_TIMEOUT);
-    } else {
+    auto triggerSync = [this, isReboot] {
         TriggerSyncShutdownCallback(isReboot);
         completionTracker_.MarkSerialDone();
+    };
+    if (force) {
+        g_futForSyncCb = async(launch::async, triggerSync);
+        g_futForSyncCb.wait_for(CALLBACK_TIMEOUT);
+    } else {
+        triggerSync();
     }
 }
 
@@ -322,8 +321,8 @@ void ShutdownController::RemoveCallback(const sptr<IParallelShutdownCallback>& c
 
 void ShutdownController::VoteCallback(uint64_t identity)
 {
-    POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel shutdown vote received, identity=%{public}" PRIu64 ", pid=%{public}d",
-        identity, IPCSkeleton::GetCallingPid());
+    POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel shutdown vote received, pid=%{public}d",
+        IPCSkeleton::GetCallingPid());
     bool found = false;
     {
         std::lock_guard<std::mutex> lock(identityMutex_);
@@ -342,8 +341,7 @@ void ShutdownController::VoteCallback(uint64_t identity)
             POWER_HILOGI(FEATURE_SHUTDOWN, "Vote accepted, remaining=%{public}d", remaining);
         }
     } else {
-        POWER_HILOGW(FEATURE_SHUTDOWN, "Vote from unregistered or already-voted callback, identity=%{public}" PRIu64,
-            identity);
+        POWER_HILOGW(FEATURE_SHUTDOWN, "Vote from unregistered or already-voted callback");
     }
 }
 
@@ -522,8 +520,7 @@ void ShutdownController::TriggerParallelShutdownCallback(bool isReboot)
                 continue;
             }
             if (identityMap_.find(identity) != identityMap_.end()) {
-                POWER_HILOGW(FEATURE_SHUTDOWN, "Identity hash collision detected, identity=%{public}" PRIu64,
-                    identity);
+                POWER_HILOGW(FEATURE_SHUTDOWN, "Identity hash collision detected, skipping duplicate callback");
                 continue;
             }
             identityMap_[identity] = callback;
@@ -545,8 +542,8 @@ void ShutdownController::TriggerParallelShutdownCallbackInner(
         sptr<IParallelShutdownCallback> callback = iface_cast<IParallelShutdownCallback>(obj);
         if (callback != nullptr) {
             uint64_t identity = std::hash<IRemoteObject*>{}(obj.GetRefPtr());
-            POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel Shutdown Callback pid=%{public}d, identity=%{public}" PRIu64,
-                pidUid.first, identity);
+            POWER_KHILOGI(FEATURE_SHUTDOWN, "Parallel Shutdown Callback pid=%{public}d",
+                pidUid.first);
             callback->OnParallelShutdownOrReboot(isReboot, identity);
         }
     }

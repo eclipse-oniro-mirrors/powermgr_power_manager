@@ -287,9 +287,18 @@ public:
     void UnRegisterShutdownCallback(const sptr<IAsyncShutdownCallback>& callback) {}
     void RegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority) {}
     void UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback) {}
-    void RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) {}
-    void UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) {}
-    void VoteShutdown(uint64_t identity) {}
+    PowerErrors RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+    {
+        return PowerErrors::ERR_OK;
+    }
+    PowerErrors UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
+    {
+        return PowerErrors::ERR_OK;
+    }
+    PowerErrors VoteShutdown(uint64_t identity)
+    {
+        return PowerErrors::ERR_OK;
+    }
     bool RegisterSuspendTakeoverCallback(
         const sptr<ITakeOverSuspendCallback>& callback, TakeOverSuspendPriority priority)
     {

@@ -513,24 +513,25 @@ int32_t PowerMgrServiceAdapter::UnRegisterShutdownCallbackIpc(const sptr<ISyncSh
 }
 
 int32_t PowerMgrServiceAdapter::RegisterShutdownCallbackIpc(
-    const sptr<IParallelShutdownCallback>& callback)
+    const sptr<IParallelShutdownCallback>& callback, int32_t& powerError)
 {
     PowerXCollie powerXCollie("PowerMgrServiceAdapter::RegisterShutdownCallback Parallel", false);
-    RegisterShutdownCallback(callback);
+    powerError = static_cast<int32_t>(RegisterShutdownCallback(callback));
     return ERR_OK;
 }
 
-int32_t PowerMgrServiceAdapter::UnRegisterShutdownCallbackIpc(const sptr<IParallelShutdownCallback>& callback)
+int32_t PowerMgrServiceAdapter::UnRegisterShutdownCallbackIpc(
+    const sptr<IParallelShutdownCallback>& callback, int32_t& powerError)
 {
     PowerXCollie powerXCollie("PowerMgrServiceAdapter::UnRegisterShutdownCallback Parallel", false);
-    UnRegisterShutdownCallback(callback);
+    powerError = static_cast<int32_t>(UnRegisterShutdownCallback(callback));
     return ERR_OK;
 }
 
-int32_t PowerMgrServiceAdapter::VoteShutdownIpc(uint64_t identity)
+int32_t PowerMgrServiceAdapter::VoteShutdownIpc(uint64_t identity, int32_t& powerError)
 {
     PowerXCollie powerXCollie("PowerMgrServiceAdapter::VoteShutdown", false);
-    VoteShutdown(identity);
+    powerError = static_cast<int32_t>(VoteShutdown(identity));
     return ERR_OK;
 }
 
