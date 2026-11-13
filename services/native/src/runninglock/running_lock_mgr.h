@@ -17,8 +17,10 @@
 #define POWERMGR_RUNNING_LOCK_MGR_H
 
 #include <array>
+#include <functional>
 #include <map>
 #include <set>
+#include <unordered_map>
 
 #include <iremote_object.h>
 #include <common_event_subscriber.h>
@@ -42,7 +44,22 @@ namespace OHOS {
 namespace PowerMgr {
 class PowerMgrService;
 class PowerStateMachine;
-using RunningLockMap = std::map<const sptr<IRemoteObject>, std::shared_ptr<RunningLockInner>>;
+struct RunningLockKeyHash {
+    size_t operator()(const sptr<IRemoteObject>& remoteObj) const
+    {
+        return std::hash<void*>()(remoteObj.GetRefPtr());
+    }
+};
+
+struct RunningLockKeyEqual {
+    bool operator()(const sptr<IRemoteObject>& lhs, const sptr<IRemoteObject>& rhs) const
+    {
+        return lhs == rhs;
+    }
+};
+
+using RunningLockMap = std::unordered_map<sptr<IRemoteObject>, std::shared_ptr<RunningLockInner>,
+    RunningLockKeyHash, RunningLockKeyEqual>;
 
 class RunningLockMgr : public std::enable_shared_from_this<RunningLockMgr> {
 public:
