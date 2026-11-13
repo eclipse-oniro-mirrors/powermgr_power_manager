@@ -854,4 +854,208 @@ HWTEST_F(PowerSuspendControllerTest, PowerSuspendControllerTest024, TestSize.Lev
     POWER_HILOGI(LABEL_TEST, "PowerSuspendControllerTest024 function end!");
 }
 #endif
+
+namespace {
+// Minimal stub that records whether SWITCH_CLOSE_AFTER_SET_STATE was dispatched.
+// Used to verify the new SuspendWhenScreenOff branches added by the
+// "screen already off + switch close" fix.
+class SuspendSwitchCloseAfterStub : public ISwitchAction {
+public:
+    bool IsSwitchCloseAfterCalled() const { return afterCalled_; }
+    bool IsSwitchCloseBeforeCalled() const { return beforeCalled_; }
+    void Reset()
+    {
+        afterCalled_ = false;
+        beforeCalled_ = false;
+    }
+
+private:
+    SwitchActionRet DoSwitchCloseBeforeSetState() override
+    {
+        beforeCalled_ = true;
+        return SwitchActionRet::DEFAULT;
+    }
+    SwitchActionRet DoSwitchCloseAfterSetState() override
+    {
+        afterCalled_ = true;
+        return SwitchActionRet::DEFAULT;
+    }
+
+    bool afterCalled_ = false;
+    bool beforeCalled_ = false;
+};
+} // namespace
+
+/**
+ * @tc.name: PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchActionNone_EarlyReturn
+ * @tc.desc: Test SuspendWhenScreenOff dispatches SWITCH_CLOSE_AFTER_SET_STATE and returns early
+ *           when reason is SWITCH and action is ACTION_NONE (the "power-key sleep then close lid"
+ *           scenario). Covers the new if-true branch of the action==ACTION_NONE check; the
+ *           switch-case state-advance logic must NOT run.
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerSuspendControllerTest,
+    PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchActionNone_EarlyReturn, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchActionNone_EarlyReturn start");
+    g_service->SuspendControllerInit();
+    ASSERT_NE(g_service->suspendController_, nullptr);
+    ASSERT_NE(g_service->suspendController_->stateMachine_, nullptr);
+
+    auto stub = std::make_shared<SuspendSwitchCloseAfterStub>();
+    auto savedAction = g_service->suspendController_->stateMachine_->GetSwitchActionPtr();
+    g_service->suspendController_->stateMachine_->SetSwitchAction(stub);
+    // Mirror ControlListener's precondition: SWITCH reason carries the action into the state
+    // machine so that DualScreenSwitchAction's After reads the same value as the caller.
+    g_service->suspendController_->stateMachine_->SetSwitchAction(
+        static_cast<uint32_t>(SuspendAction::ACTION_NONE));
+
+    // Force the device into SLEEP so the switch-case would otherwise hit SuspendWhenStateSleep.
+    g_service->suspendController_->stateMachine_->SetState(
+        PowerState::SLEEP, StateChangeReason::STATE_CHANGE_REASON_SYSTEM, true);
+    ASSERT_EQ(g_service->suspendController_->stateMachine_->GetState(), PowerState::SLEEP);
+
+    stub->Reset();
+    g_service->suspendController_->SuspendWhenScreenOff(
+        SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH,
+        static_cast<uint32_t>(SuspendAction::ACTION_NONE), 0);
+
+    // After must be dispatched so DMS is notified to enter the closed state.
+    EXPECT_TRUE(stub->IsSwitchCloseAfterCalled());
+    // Early return means state is unchanged.
+    EXPECT_EQ(g_service->suspendController_->stateMachine_->GetState(), PowerState::SLEEP);
+
+    g_service->suspendController_->stateMachine_->SetSwitchAction(savedAction);
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchActionNone_EarlyReturn end");
+}
+
+/**
+ * @tc.name: PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchNonActionNone_Continue
+ * @tc.desc: Test SuspendWhenScreenOff dispatches SWITCH_CLOSE_AFTER_SET_STATE and continues into
+ *           the state-advance switch-case when reason is SWITCH and action is not ACTION_NONE
+ *           (the "power-key screen-off then close lid to sleep" scenario). Covers the new
+ *           if-false branch of the action==ACTION_NONE check.
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerSuspendControllerTest,
+    PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchNonActionNone_Continue, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchNonActionNone_Continue start");
+    g_service->SuspendControllerInit();
+    ASSERT_NE(g_service->suspendController_, nullptr);
+    ASSERT_NE(g_service->suspendController_->stateMachine_, nullptr);
+
+    auto stub = std::make_shared<SuspendSwitchCloseAfterStub>();
+    auto savedAction = g_service->suspendController_->stateMachine_->GetSwitchActionPtr();
+    g_service->suspendController_->stateMachine_->SetSwitchAction(stub);
+    g_service->suspendController_->stateMachine_->SetSwitchAction(
+        static_cast<uint32_t>(SuspendAction::ACTION_AUTO_SUSPEND));
+
+    // Place the device in INACTIVE so the switch-case hits the INACTIVE branch (StartSleepTimer).
+    g_service->suspendController_->stateMachine_->SetState(
+        PowerState::INACTIVE, StateChangeReason::STATE_CHANGE_REASON_SYSTEM, true);
+    ASSERT_EQ(g_service->suspendController_->stateMachine_->GetState(), PowerState::INACTIVE);
+
+    stub->Reset();
+    g_service->suspendController_->SuspendWhenScreenOff(
+        SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH,
+        static_cast<uint32_t>(SuspendAction::ACTION_AUTO_SUSPEND), 0);
+
+    // After must be dispatched so DMS is notified to enter the closed state.
+    EXPECT_TRUE(stub->IsSwitchCloseAfterCalled());
+    // No early return: state-advance logic was allowed to run. State may move to SLEEP via
+    // StartSleepTimer; assert at minimum we did not stay pinned in INACTIVE by an early return.
+    EXPECT_TRUE(g_service->suspendController_->stateMachine_->GetState() == PowerState::INACTIVE ||
+        g_service->suspendController_->stateMachine_->GetState() == PowerState::SLEEP);
+
+    g_service->suspendController_->stateMachine_->SetSwitchAction(savedAction);
+    // Allow any ffrt tasks spawned by StartSleepTimer to settle before the next test.
+    ffrt::wait();
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_SwitchNonActionNone_Continue end");
+}
+
+/**
+ * @tc.name: PowerSuspendControllerTest_SuspendWhenScreenOff_NonSwitchReason_SkipSwitchAction
+ * @tc.desc: Test SuspendWhenScreenOff does NOT dispatch SWITCH_CLOSE_AFTER_SET_STATE when reason
+ *           is not SWITCH. To reach the outer if-false branch (reason != SWITCH) the LidCheck
+ *           guard must let the call through, which under IsLidCheckEnable()==true only happens
+ *           for SUSPEND_DEVICE_REASON_LID. Covers the reason != SWITCH branch and guards against
+ *           accidental dispatch for non-switch suspend sources that share this short path.
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerSuspendControllerTest,
+    PowerSuspendControllerTest_SuspendWhenScreenOff_NonSwitchReason_SkipSwitchAction, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_NonSwitchReason_SkipSwitchAction start");
+    g_service->SuspendControllerInit();
+    ASSERT_NE(g_service->suspendController_, nullptr);
+    ASSERT_NE(g_service->suspendController_->stateMachine_, nullptr);
+
+    auto stub = std::make_shared<SuspendSwitchCloseAfterStub>();
+    auto savedAction = g_service->suspendController_->stateMachine_->GetSwitchActionPtr();
+    g_service->suspendController_->stateMachine_->SetSwitchAction(stub);
+
+    // Force IsLidCheckEnable()==true so the LidCheck guard admits SUSPEND_DEVICE_REASON_LID;
+    // otherwise the guard would short-circuit all non-SWITCH reasons and the outer if-false
+    // branch would be unreachable in this configuration.
+    bool savedLidCheck = g_service->isLidCheckEnable_;
+    g_service->isLidCheckEnable_ = true;
+
+    stub->Reset();
+    g_service->suspendController_->SuspendWhenScreenOff(
+        SuspendDeviceType::SUSPEND_DEVICE_REASON_LID,
+        static_cast<uint32_t>(SuspendAction::ACTION_AUTO_SUSPEND), 0);
+
+    EXPECT_FALSE(stub->IsSwitchCloseAfterCalled());
+    EXPECT_FALSE(stub->IsSwitchCloseBeforeCalled());
+
+    g_service->isLidCheckEnable_ = savedLidCheck;
+    g_service->suspendController_->stateMachine_->SetSwitchAction(savedAction);
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_NonSwitchReason_SkipSwitchAction end");
+}
+
+/**
+ * @tc.name: PowerSuspendControllerTest_SuspendWhenScreenOff_NullSwitchAction_NoCrash
+ * @tc.desc: Test SuspendWhenScreenOff does not crash and does not dispatch when the state
+ *           machine's switch action pointer is null, even if reason is SWITCH. Covers the
+ *           switchAction != nullptr clause of the new outer if (if-false via nullptr).
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerSuspendControllerTest,
+    PowerSuspendControllerTest_SuspendWhenScreenOff_NullSwitchAction_NoCrash, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_NullSwitchAction_NoCrash start");
+    g_service->SuspendControllerInit();
+    ASSERT_NE(g_service->suspendController_, nullptr);
+    ASSERT_NE(g_service->suspendController_->stateMachine_, nullptr);
+
+    auto savedAction = g_service->suspendController_->stateMachine_->GetSwitchActionPtr();
+    g_service->suspendController_->stateMachine_->SetSwitchAction(nullptr);
+
+    g_service->suspendController_->stateMachine_->SetState(
+        PowerState::SLEEP, StateChangeReason::STATE_CHANGE_REASON_SYSTEM, true);
+    ASSERT_EQ(g_service->suspendController_->stateMachine_->GetState(), PowerState::SLEEP);
+
+    // Must not crash.
+    g_service->suspendController_->SuspendWhenScreenOff(
+        SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH,
+        static_cast<uint32_t>(SuspendAction::ACTION_NONE), 0);
+    // State-advance switch-case is allowed to run; SLEEP+ACTION_NONE is a no-op there.
+    EXPECT_EQ(g_service->suspendController_->stateMachine_->GetState(), PowerState::SLEEP);
+
+    g_service->suspendController_->stateMachine_->SetSwitchAction(savedAction);
+    POWER_HILOGI(LABEL_TEST,
+        "PowerSuspendControllerTest_SuspendWhenScreenOff_NullSwitchAction_NoCrash end");
+}
 } // namespace

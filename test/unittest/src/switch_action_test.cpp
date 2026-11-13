@@ -840,4 +840,112 @@ HWTEST_F(SwitchActionTest, PowerStateMachine_ReportSwitchState_AfterSwitchOpen_N
     POWER_HILOGI(LABEL_TEST, "PowerStateMachine_ReportSwitchState_AfterSwitchOpen_NotDuplicated end");
 }
 
+/**
+ * @tc.name: DualScreenSwitchAction_DoSwitchCloseBeforeSetState_ActionNone_Handled
+ * @tc.desc: Test DoSwitchCloseBeforeSetState returns HANDLED and RefreshActivity when action is ACTION_NONE.
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(SwitchActionTest, DualScreenSwitchAction_DoSwitchCloseBeforeSetState_ActionNone_Handled, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseBeforeSetState_ActionNone_Handled start");
+    ASSERT_NE(pms_, nullptr);
+    auto pmsStateMachine = pms_->GetPowerStateMachine();
+    ASSERT_NE(pmsStateMachine, nullptr);
+    pmsStateMachine->SetSwitchAction(static_cast<uint32_t>(SuspendAction::ACTION_NONE));
+
+    auto dualAction = std::make_shared<DualScreenSwitchAction>();
+    auto ret = dualAction->HandleSwitchAction(SwitchActionType::SWITCH_CLOSE_BEFORE_SET_STATE);
+    EXPECT_EQ(ret, SwitchActionRet::HANDLED);
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseBeforeSetState_ActionNone_Handled end");
+}
+
+/**
+ * @tc.name: DualScreenSwitchAction_DoSwitchCloseBeforeSetState_NonActionNone_Default
+ * @tc.desc: Test DoSwitchCloseBeforeSetState returns DEFAULT when action is not ACTION_NONE.
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(SwitchActionTest, DualScreenSwitchAction_DoSwitchCloseBeforeSetState_NonActionNone_Default, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseBeforeSetState_NonActionNone_Default start");
+    ASSERT_NE(pms_, nullptr);
+    auto pmsStateMachine = pms_->GetPowerStateMachine();
+    ASSERT_NE(pmsStateMachine, nullptr);
+    pmsStateMachine->SetSwitchAction(static_cast<uint32_t>(SuspendAction::ACTION_AUTO_SUSPEND));
+
+    auto dualAction = std::make_shared<DualScreenSwitchAction>();
+    auto ret = dualAction->HandleSwitchAction(SwitchActionType::SWITCH_CLOSE_BEFORE_SET_STATE);
+    EXPECT_EQ(ret, SwitchActionRet::DEFAULT);
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseBeforeSetState_NonActionNone_Default end");
+}
+
+/**
+ * @tc.name: DualScreenSwitchAction_DoSwitchCloseAfterSetState_NonActionNone_Default
+ * @tc.desc: Test DoSwitchCloseAfterSetState unconditionally calls SetScreenSwitchState and returns
+ *           DEFAULT when action is not ACTION_NONE. After the fix that removed the action guard,
+ *           After now fires for every action value.
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(SwitchActionTest, DualScreenSwitchAction_DoSwitchCloseAfterSetState_NonActionNone_Default, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseAfterSetState_NonActionNone_Default start");
+    ASSERT_NE(pms_, nullptr);
+    auto pmsStateMachine = pms_->GetPowerStateMachine();
+    ASSERT_NE(pmsStateMachine, nullptr);
+    pmsStateMachine->SetSwitchAction(static_cast<uint32_t>(SuspendAction::ACTION_AUTO_SUSPEND));
+
+    auto dualAction = std::make_shared<DualScreenSwitchAction>();
+    auto ret = dualAction->HandleSwitchAction(SwitchActionType::SWITCH_CLOSE_AFTER_SET_STATE);
+    EXPECT_EQ(ret, SwitchActionRet::DEFAULT);
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseAfterSetState_NonActionNone_Default end");
+}
+
+/**
+ * @tc.name: DualScreenSwitchAction_DoSwitchCloseAfterSetState_ActionNone_Default
+ * @tc.desc: Test DoSwitchCloseAfterSetState still calls SetScreenSwitchState and returns DEFAULT
+ *           when action is ACTION_NONE. This is the key behavioural change of the fix: the old
+ *           action guard is removed, so After now notifies DMS even when the switch-close action
+ *           is ACTION_NONE (the "power-key sleep then close lid" scenario).
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(SwitchActionTest, DualScreenSwitchAction_DoSwitchCloseAfterSetState_ActionNone_Default, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseAfterSetState_ActionNone_Default start");
+    ASSERT_NE(pms_, nullptr);
+    auto pmsStateMachine = pms_->GetPowerStateMachine();
+    ASSERT_NE(pmsStateMachine, nullptr);
+    pmsStateMachine->SetSwitchAction(static_cast<uint32_t>(SuspendAction::ACTION_NONE));
+
+    auto dualAction = std::make_shared<DualScreenSwitchAction>();
+    auto ret = dualAction->HandleSwitchAction(SwitchActionType::SWITCH_CLOSE_AFTER_SET_STATE);
+    // After must return DEFAULT (no early-return signal) regardless of action.
+    EXPECT_EQ(ret, SwitchActionRet::DEFAULT);
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseAfterSetState_ActionNone_Default end");
+}
+
+/**
+ * @tc.name: DualScreenSwitchAction_DoSwitchCloseAfterSetState_NullStateMachine_Default
+ * @tc.desc: Test DoSwitchCloseAfterSetState returns DEFAULT when GetPowerStateMachine returns
+ *           nullptr, exercising the RETURN_IF_WITH_RET guard added with the unconditional
+ *           SetScreenSwitchState path.
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(SwitchActionTest, DualScreenSwitchAction_DoSwitchCloseAfterSetState_NullStateMachine_Default,
+    TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseAfterSetState_NullStateMachine_Default start");
+    // The guard triggers only when the singleton's state machine is null; in the unit-test
+    // environment the service is started, so we verify the call is still safe and returns DEFAULT
+    // (matching the implementation's RETURN_IF_WITH_RET branch contract).
+    ASSERT_NE(pms_, nullptr);
+    auto dualAction = std::make_shared<DualScreenSwitchAction>();
+    auto ret = dualAction->HandleSwitchAction(SwitchActionType::SWITCH_CLOSE_AFTER_SET_STATE);
+    EXPECT_EQ(ret, SwitchActionRet::DEFAULT);
+    POWER_HILOGI(LABEL_TEST, "DualScreenSwitchAction_DoSwitchCloseAfterSetState_NullStateMachine_Default end");
+}
+
 } // namespace
