@@ -156,7 +156,12 @@ void SetPowerModeSync(DevicePowerMode mode)
 
 DevicePowerSubMode GetPowerSubMode()
 {
-    PowerSubMode subMode = g_powerMgrClient.GetDeviceSubMode();
+    PowerSubMode subMode = PowerSubMode::SUB_MODE_INVALID;
+    PowerErrors code = g_powerMgrClient.GetDeviceSubMode(subMode);
+    if (code != PowerErrors::ERR_OK) {
+        taihe::set_business_error(static_cast<int32_t>(code), GetErrorMessage(code));
+        return DevicePowerSubMode::key_t::SUB_MODE_INVALID;
+    }
     DevicePowerSubMode result = DevicePowerSubMode::key_t::SUB_MODE_INVALID;
     switch (subMode) {
         case PowerSubMode::SUB_MODE_INVALID:
@@ -176,10 +181,18 @@ DevicePowerSubMode GetPowerSubMode()
     return result;
 }
 
-void SetPowerSubModeSync(DevicePowerMode mode, DevicePowerSubMode subMode)
+void SetPowerSubModeSync(DevicePowerMode mode, taihe::optional<DevicePowerSubMode> subMode)
 {
     PowerMode powerMode = PowerMode(static_cast<uint32_t>(mode));
-    PowerSubMode powerSubMode = PowerSubMode(static_cast<int32_t>(subMode));
+    if (!subMode.has_value()) {
+        // undefined: treat as not passing subMode, fallback to single-param
+        PowerErrors code = g_powerMgrClient.SetDeviceMode(powerMode);
+        if (code != PowerErrors::ERR_OK && code != PowerErrors::ERR_FAILURE) {
+            taihe::set_business_error(static_cast<int32_t>(code), GetErrorMessage(code));
+        }
+        return;
+    }
+    PowerSubMode powerSubMode = PowerSubMode(static_cast<int32_t>(subMode.value()));
     PowerErrors code = g_powerMgrClient.SetDeviceSubMode(powerMode, powerSubMode);
     if (code != PowerErrors::ERR_OK && code != PowerErrors::ERR_FAILURE) {
         taihe::set_business_error(static_cast<int32_t>(code), GetErrorMessage(code));

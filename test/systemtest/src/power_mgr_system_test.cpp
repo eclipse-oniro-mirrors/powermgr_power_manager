@@ -142,13 +142,17 @@ HWTEST_F(PowerMgrSystemTest, PowerMgrSystemTest_005, TestSize.Level2)
     PowerErrors ret = client.SetDeviceSubMode(PowerMode::EXTREME_POWER_SAVE_MODE,
         PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
     EXPECT_EQ(ret, PowerErrors::ERR_OK);
-    PowerSubMode subMode = client.GetDeviceSubMode();
+    PowerSubMode subMode = PowerSubMode::SUB_MODE_INVALID;
+    ret = client.GetDeviceSubMode(subMode);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
     EXPECT_EQ(subMode, PowerSubMode::SUB_MODE_SUPER_POWER_SAVE);
     ret = client.SetDeviceSubMode(PowerMode::NORMAL_MODE,
         PowerSubMode::SUB_MODE_INVALID);
     EXPECT_EQ(ret, PowerErrors::ERR_POWER_MODE_TRANSIT_FAILED);
     client.SetDeviceMode(PowerMode::NORMAL_MODE);
-    subMode = client.GetDeviceSubMode();
+    subMode = PowerSubMode::SUB_MODE_INVALID;
+    ret = client.GetDeviceSubMode(subMode);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
     EXPECT_EQ(subMode, PowerSubMode::SUB_MODE_INVALID);
     POWER_HILOGI(LABEL_TEST, "PowerMgrSystemTest_005 function end!");
 }
