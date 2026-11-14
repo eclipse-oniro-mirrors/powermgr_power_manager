@@ -114,7 +114,8 @@ public:
     int32_t UnRegisterShutdownCallbackIpc(const sptr<ISyncShutdownCallback>& callback) override;
     int32_t RegisterShutdownCallbackIpc(
         const sptr<IParallelShutdownCallback>& callback, int32_t& powerError) override;
-    int32_t UnRegisterShutdownCallbackIpc(const sptr<IParallelShutdownCallback>& callback, int32_t& powerError) override;
+    int32_t UnRegisterShutdownCallbackIpc(const sptr<IParallelShutdownCallback>& callback,
+        int32_t& powerError) override;
     int32_t VoteShutdownIpc(uint64_t identity, int32_t& powerError) override;
     virtual int32_t RegisterUlsrCallbackIpc(const sptr<IUlsrCallback>& callback, int32_t priorityValue,
         int32_t& powerError) override;
