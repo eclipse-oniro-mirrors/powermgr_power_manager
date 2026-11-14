@@ -47,8 +47,6 @@ using namespace std;
 namespace OHOS {
 namespace PowerMgr {
 
-std::atomic<uint64_t> ShutdownController::nextIdentity_{1};
-
 namespace {
 constexpr std::chrono::seconds CALLBACK_TIMEOUT = 10s;
 constexpr std::chrono::seconds OFF_TIMEOUT = 5s;
@@ -516,17 +514,17 @@ void ShutdownController::TriggerSyncShutdownCallbackInner(std::set<sptr<IRemoteO
 void ShutdownController::TriggerParallelShutdownCallback(bool isReboot)
 {
     auto allCallbacks = parallelShutdownCallbackHolder_->GetDefaultPriorityCallbacks();
-    completionTracker_.Reset();
     std::vector<std::pair<sptr<IRemoteObject>, uint64_t>> triggerList;
     {
         std::lock_guard<std::mutex> lock(identityMutex_);
         identityMap_.clear();
+        completionTracker_.Reset();
         for (const auto& obj : allCallbacks) {
             auto callback = iface_cast<IParallelShutdownCallback>(obj);
             if (callback == nullptr) {
                 continue;
             }
-            uint64_t identity = nextIdentity_.fetch_add(1, std::memory_order_relaxed);
+            uint64_t identity = std::hash<IRemoteObject*>{}(obj.GetRefPtr());
             if (identityMap_.find(identity) != identityMap_.end()) {
                 POWER_HILOGW(FEATURE_SHUTDOWN, "Identity collision detected, skipping duplicate callback");
                 continue;
@@ -559,16 +557,16 @@ void ShutdownController::CompletionTracker::Reset()
 
 void ShutdownController::CompletionTracker::MarkParallelDone()
 {
-    parallelDone_ = true;
     std::lock_guard<std::mutex> lock(mutex_);
+    parallelDone_ = true;
     cv_.notify_one();
     POWER_HILOGI(FEATURE_SHUTDOWN, "parallelDone set, notify");
 }
 
 void ShutdownController::CompletionTracker::MarkSerialDone()
 {
-    serialDone_ = true;
     std::lock_guard<std::mutex> lock(mutex_);
+    serialDone_ = true;
     cv_.notify_one();
     POWER_HILOGI(FEATURE_SHUTDOWN, "serialDone set, notify");
 }
