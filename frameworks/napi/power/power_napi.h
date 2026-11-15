@@ -65,6 +65,8 @@ public:
     static napi_value SetPowerKeyFilteringStrategy(napi_env env, napi_callback_info info);
     static napi_value RegisterShutdownCallback(napi_env env, napi_callback_info info);
     static napi_value UnRegisterShutdownCallback(napi_env env, napi_callback_info info);
+    static napi_value RegisterHibernateCallback(napi_env env, napi_callback_info info);
+    static napi_value UnRegisterHibernateCallback(napi_env env, napi_callback_info info);
 
 private:
     static napi_value RebootOrShutdown(napi_env env, napi_callback_info info, bool isReboot);

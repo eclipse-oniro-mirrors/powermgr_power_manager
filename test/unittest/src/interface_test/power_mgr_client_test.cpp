@@ -36,6 +36,7 @@
 #include "takeover_suspend_callback_stub.h"
 #include "ulsr_callback_stub.h"
 #include "shutdown/async_shutdown_callback_stub.h"
+#include "sync_hibernate_callback_stub.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -77,6 +78,9 @@ void PowerMgrClientTest::TearDown(void)
 
 sptr<IPowerMgr> PowerMgrClient::GetPowerMgrProxy()
 {
+    if (PowerMgrClientTest::isProxyNull_) {
+        return nullptr;
+    }
     return PowerMgrClientTest::stub_;
 }
 
@@ -2048,5 +2052,46 @@ HWTEST_F(PowerMgrClientTest, PowerMgrClient071, TestSize.Level0) {
     EXPECT_NE(ret, PowerErrors::ERR_CONNECTION_FAIL);
 #endif
     POWER_HILOGI(LABEL_TEST, "PowerMgrClient071 function end!");
+}
+
+/**
+ * @tc.name: HibernateCallbackExTest001
+ * @tc.desc: test RegisterSyncHibernateCallbackEx and UnRegisterSyncHibernateCallbackEx with normal callback
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerMgrClientTest, HibernateCallbackExTest001, TestSize.Level0) {
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackExTest001 function start!");
+    auto& powerMgrClient = PowerMgrClient::GetInstance();
+    sptr<SyncHibernateCallbackStub> callback = nullptr;
+    EXPECT_EQ(powerMgrClient.RegisterSyncHibernateCallbackEx(callback, HibernateCallbackPriority::DEFAULT),
+        PowerErrors::ERR_PARAM_INVALID);
+    EXPECT_EQ(powerMgrClient.UnRegisterSyncHibernateCallbackEx(callback), PowerErrors::ERR_PARAM_INVALID);
+
+    callback = new SyncHibernateCallbackStub();
+    EXPECT_EQ(powerMgrClient.RegisterSyncHibernateCallbackEx(callback, HibernateCallbackPriority::DEFAULT),
+        PowerErrors::ERR_OK);
+    EXPECT_EQ(powerMgrClient.UnRegisterSyncHibernateCallbackEx(callback), PowerErrors::ERR_OK);
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackExTest001 function end!");
+}
+
+/**
+ * @tc.name: HibernateCallbackExTest002
+ * @tc.desc: test RegisterSyncHibernateCallbackEx and UnRegisterSyncHibernateCallbackEx with null proxy
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerMgrClientTest, HibernateCallbackExTest002, TestSize.Level0) {
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackExTest002 function start!");
+    auto& powerMgrClient = PowerMgrClient::GetInstance();
+    sptr<SyncHibernateCallbackStub> callback = new SyncHibernateCallbackStub();
+
+    PowerMgrClientTest::isProxyNull_ = true;
+    PowerErrors registerRet =
+        powerMgrClient.RegisterSyncHibernateCallbackEx(callback, HibernateCallbackPriority::DEFAULT);
+    PowerErrors unregisterRet = powerMgrClient.UnRegisterSyncHibernateCallbackEx(callback);
+    PowerMgrClientTest::isProxyNull_ = false;
+
+    EXPECT_EQ(registerRet, PowerErrors::ERR_CONNECTION_FAIL);
+    EXPECT_EQ(unregisterRet, PowerErrors::ERR_CONNECTION_FAIL);
+    POWER_HILOGI(LABEL_TEST, "HibernateCallbackExTest002 function end!");
 }
 } // namespace

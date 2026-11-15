@@ -140,6 +140,15 @@ function RegisterShutdownCallback(shutdownCb: (isReboot: bool) => void): void;
 
 function UnregisterShutdownCallback(callBack: Optional<(arg: MyUndefined) => void>): void;
 
+interface HibernateCallback {
+  onHibernate(): Future<void>;
+  onWakeup(hibernateResult: bool): Future<void>;
+}
+
+function RegisterHibernateCallback(callback: HibernateCallback): void;
+
+function UnregisterHibernateCallback(): void;
+
 enum DevicePowerMode : i32 {
   MODE_NORMAL = 600,
   MODE_POWER_SAVE,

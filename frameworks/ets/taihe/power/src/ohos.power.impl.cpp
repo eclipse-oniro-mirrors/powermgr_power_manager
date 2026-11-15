@@ -16,11 +16,13 @@
 #include "ohos.power.proj.hpp"
 #include "ohos.power.impl.hpp"
 #include "taihe/runtime.hpp"
+#include "taihe/platform/ani.hpp"
 #include "stdexcept"
 #include "power_common.h"
 #include "power_log.h"
 #include "power_mgr_client.h"
 #include "power_shutdown_callback.h"
+#include "power_hibernate_callback.h"
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -34,7 +36,64 @@ using namespace OHOS::PowerMgr;
 namespace {
 static PowerMgrClient& g_powerMgrClient = PowerMgrClient::GetInstance();
 thread_local OHOS::sptr<PowerShutdownCallback> g_powerShutdownCallback = new (std::nothrow) PowerShutdownCallback();
+OHOS::sptr<PowerHibernateCallback> g_powerHibernateCallback = new (std::nothrow) PowerHibernateCallback();
+std::mutex g_hibernateRegistrationMutex;
 constexpr int32_t RESTORE_DEFAULT_SCREENOFF_TIME = -1;
+constexpr const char* HIBERNATE_CALLBACK_METHODS[] = {"onHibernate", "onWakeup"};
+
+PowerErrors GetHibernateCallbackMethodStatus(ani_env* env, ani_object object, ani_class callbackClass,
+    const char* name)
+{
+    ani_method method = nullptr;
+    ani_status methodStatus = env->Class_FindMethod(callbackClass, name, nullptr, &method);
+    if (methodStatus == ANI_OK || methodStatus == ANI_AMBIGUOUS) {
+        return PowerErrors::ERR_OK;
+    }
+    ani_ref property = nullptr;
+    if (env->Object_GetPropertyByName_Ref(object, name, &property) != ANI_OK || property == nullptr) {
+        return PowerErrors::ERR_USER_PARAM_INVALID;
+    }
+    ani_boolean isNullish = false;
+    ani_type propertyType = nullptr;
+    if (env->Reference_IsNullishValue(property, &isNullish) != ANI_OK || isNullish ||
+        env->Object_GetType(static_cast<ani_object>(property), &propertyType) != ANI_OK) {
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    if (env->Class_FindMethod(reinterpret_cast<ani_class>(propertyType), "unsafeCall", nullptr, &method) != ANI_OK) {
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    return PowerErrors::ERR_OK;
+}
+
+PowerErrors ValidateHibernateCallback(::ohos::power::weak::HibernateCallback callback)
+{
+    if (callback.is_error()) {
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    auto wrapper = taihe::platform::ani::weak::AniObject(callback);
+    if (wrapper.is_error()) {
+        // Native Taihe holders have their method signatures checked when they are constructed.
+        return PowerErrors::ERR_OK;
+    }
+    taihe::env_guard guard;
+    ani_env* env = guard.get_env();
+    ani_ref reference = reinterpret_cast<ani_ref>(wrapper->getGlobalReference());
+    ani_boolean isNullish = false;
+    ani_type callbackType = nullptr;
+    if (env == nullptr || reference == nullptr ||
+        env->Reference_IsNullishValue(reference, &isNullish) != ANI_OK || isNullish ||
+        env->Object_GetType(static_cast<ani_object>(reference), &callbackType) != ANI_OK) {
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    for (const char* name : HIBERNATE_CALLBACK_METHODS) {
+        PowerErrors code = GetHibernateCallbackMethodStatus(env, static_cast<ani_object>(reference),
+            reinterpret_cast<ani_class>(callbackType), name);
+        if (code != PowerErrors::ERR_OK) {
+            return code;
+        }
+    }
+    return PowerErrors::ERR_OK;
+}
 
 static void SetFrameworkBootStage(bool isReboot)
 {
@@ -315,6 +374,50 @@ void UnregisterShutdownCallback(::taihe::optional_view<::taihe::callback<void(My
         POWER_HILOGI(FEATURE_SHUTDOWN, "UnRegisterShutdownCallback callBack is null");
     }
 }
+
+void RegisterHibernateCallback(::ohos::power::weak::HibernateCallback callback)
+{
+    POWER_HILOGI(FEATURE_SUSPEND, "ets RegisterHibernateCallback interface");
+    PowerErrors validationCode = ValidateHibernateCallback(callback);
+    if (validationCode != PowerErrors::ERR_OK) {
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterHibernateCallback invalid callback. code:%{public}d",
+            static_cast<int32_t>(validationCode));
+        taihe::set_business_error(static_cast<int32_t>(validationCode), GetErrorMessage(validationCode));
+        return;
+    }
+    std::lock_guard lock(g_hibernateRegistrationMutex);
+    if (g_powerHibernateCallback == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "g_powerHibernateCallback is nullptr");
+        return;
+    }
+    PowerErrors code = g_powerMgrClient.RegisterSyncHibernateCallbackEx(
+        g_powerHibernateCallback, HibernateCallbackPriority::DEFAULT);
+    if (code != PowerErrors::ERR_OK) {
+        POWER_HILOGE(FEATURE_SUSPEND, "RegisterHibernateCallback failed. code:%{public}d",
+            static_cast<int32_t>(code));
+        taihe::set_business_error(static_cast<int32_t>(code), GetErrorMessage(code));
+        return;
+    }
+    g_powerHibernateCallback->CreateCallback(callback);
+}
+
+void UnregisterHibernateCallback()
+{
+    POWER_HILOGI(FEATURE_SUSPEND, "ets UnregisterHibernateCallback interface");
+    std::lock_guard lock(g_hibernateRegistrationMutex);
+    if (g_powerHibernateCallback == nullptr) {
+        POWER_HILOGE(FEATURE_SUSPEND, "g_powerHibernateCallback is nullptr");
+        return;
+    }
+    PowerErrors code = g_powerMgrClient.UnRegisterSyncHibernateCallbackEx(g_powerHibernateCallback);
+    if (code != PowerErrors::ERR_OK) {
+        POWER_HILOGE(FEATURE_SUSPEND, "UnregisterHibernateCallback failed. code:%{public}d",
+            static_cast<int32_t>(code));
+        taihe::set_business_error(static_cast<int32_t>(code), GetErrorMessage(code));
+        return;
+    }
+    g_powerHibernateCallback->ReleaseCallback();
+}
 }  // namespace
 
 // Since these macros are auto-generate, lint will cause false positive
@@ -337,4 +440,6 @@ TH_EXPORT_CPP_API_GetPowerConfig(GetPowerConfig);
 TH_EXPORT_CPP_API_SetPowerConfig(SetPowerConfig);
 TH_EXPORT_CPP_API_RegisterShutdownCallback(RegisterShutdownCallback);
 TH_EXPORT_CPP_API_UnregisterShutdownCallback(UnregisterShutdownCallback);
+TH_EXPORT_CPP_API_RegisterHibernateCallback(RegisterHibernateCallback);
+TH_EXPORT_CPP_API_UnregisterHibernateCallback(UnregisterHibernateCallback);
 // NOLINTEND

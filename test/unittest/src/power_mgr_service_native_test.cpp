@@ -30,6 +30,7 @@
 #include "permission.h"
 #include "power_common.h"
 #include "power_mgr_service.h"
+#include "sync_hibernate_callback_stub.h"
 #include "ulsr_callback_stub.h"
 #include "setting_helper.h"
 #include "shutdown/async_shutdown_callback_stub.h"
@@ -1493,6 +1494,66 @@ HWTEST_F(PowerMgrServiceNativeTest, PowerMgrServiceNative044, TestSize.Level1)
 
     stateMachine->stateAction_.reset();
     POWER_HILOGI(LABEL_TEST, "PowerMgrServiceNative044 end!");
+}
+
+class HibernateCallbackTest : public SyncHibernateCallbackStub {
+public:
+    HibernateCallbackTest() = default;
+    ~HibernateCallbackTest() override = default;
+};
+
+/**
+ * @tc.name: PowerMgrServiceNative045
+ * @tc.desc: Test RegisterSyncHibernateCallbackEx permission and parameter validation
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerMgrServiceNativeTest, PowerMgrServiceNative045, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceNative045 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    sptr<HibernateCallbackTest> callback = new HibernateCallbackTest();
+
+    g_isSystem = false;
+    EXPECT_EQ(pmsTest->RegisterSyncHibernateCallbackEx(callback, HibernateCallbackPriority::DEFAULT),
+        PowerErrors::ERR_SYSTEM_API_DENIED);
+
+    g_isSystem = true;
+    g_isPermissionGranted = false;
+    EXPECT_EQ(pmsTest->RegisterSyncHibernateCallbackEx(callback, HibernateCallbackPriority::DEFAULT),
+        PowerErrors::ERR_PERMISSION_DENIED);
+
+    g_isPermissionGranted = true;
+    EXPECT_EQ(pmsTest->RegisterSyncHibernateCallbackEx(nullptr, HibernateCallbackPriority::DEFAULT),
+        PowerErrors::ERR_PARAM_INVALID);
+
+    EXPECT_EQ(pmsTest->RegisterSyncHibernateCallbackEx(callback, HibernateCallbackPriority::DEFAULT),
+        PowerErrors::ERR_OK);
+    EXPECT_EQ(pmsTest->UnRegisterSyncHibernateCallbackEx(callback), PowerErrors::ERR_OK);
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceNative045 end!");
+}
+
+/**
+ * @tc.name: PowerMgrServiceNative046
+ * @tc.desc: Test UnRegisterSyncHibernateCallbackEx permission and parameter validation
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerMgrServiceNativeTest, PowerMgrServiceNative046, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceNative046 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    sptr<HibernateCallbackTest> callback = new HibernateCallbackTest();
+
+    g_isSystem = false;
+    EXPECT_EQ(pmsTest->UnRegisterSyncHibernateCallbackEx(callback), PowerErrors::ERR_SYSTEM_API_DENIED);
+
+    g_isSystem = true;
+    g_isPermissionGranted = false;
+    EXPECT_EQ(pmsTest->UnRegisterSyncHibernateCallbackEx(callback), PowerErrors::ERR_PERMISSION_DENIED);
+
+    g_isPermissionGranted = true;
+    EXPECT_EQ(pmsTest->UnRegisterSyncHibernateCallbackEx(nullptr), PowerErrors::ERR_PARAM_INVALID);
+    EXPECT_EQ(pmsTest->UnRegisterSyncHibernateCallbackEx(callback), PowerErrors::ERR_OK);
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceNative046 end!");
 }
 
 } // namespace

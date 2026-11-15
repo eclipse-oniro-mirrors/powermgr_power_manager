@@ -62,6 +62,7 @@ public:
     testing::NiceMock<MockLockAction>* lockActionMock {nullptr};
 
     static inline sptr<PowerMgrService> stub_ {nullptr};
+    static inline bool isProxyNull_ {false};
 };
 } // namespace PowerMgr
 } // namespace OHOS

@@ -359,6 +359,23 @@ int32_t PowerMgrServiceAdapter::UnRegisterSyncHibernateCallbackIpc(const sptr<IS
     return ERR_OK;
 }
 
+int32_t PowerMgrServiceAdapter::RegisterSyncHibernateCallbackExIpc(
+    const sptr<ISyncHibernateCallback>& callback, int32_t priorityValue, int32_t& powerError)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::RegisterSyncHibernateCallbackEx", false);
+    HibernateCallbackPriority priority = static_cast<HibernateCallbackPriority>(priorityValue);
+    powerError = static_cast<int32_t>(RegisterSyncHibernateCallbackEx(callback, priority));
+    return ERR_OK;
+}
+
+int32_t PowerMgrServiceAdapter::UnRegisterSyncHibernateCallbackExIpc(
+    const sptr<ISyncHibernateCallback>& callback, int32_t& powerError)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::UnRegisterSyncHibernateCallbackEx", false);
+    powerError = static_cast<int32_t>(UnRegisterSyncHibernateCallbackEx(callback));
+    return ERR_OK;
+}
+
 int32_t PowerMgrServiceAdapter::RegisterPowerModeCallbackIpc(const sptr<IPowerModeCallback>& callback)
 {
     PowerXCollie powerXCollie("PowerMgrServiceAdapter::RegisterPowerModeCallback", false);
