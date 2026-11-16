@@ -289,7 +289,7 @@ void PowerStateMachine::InitState()
     return;
 #endif
     POWER_HILOGI(FEATURE_POWER_STATE, "Init power state");
-    if (IsScreenOnStrengthen()) {
+    if (IsScreenOnWithRechecking()) {
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::DISPLAY, "SCREEN_STATE",
             HiviewDFX::HiSysEvent::EventType::STATISTIC, "STATE", DISPLAY_ON);
@@ -1115,7 +1115,7 @@ bool PowerStateMachine::IsScreenOn(bool needPrintLog)
     return isScreenOn;
 }
 
-bool PowerStateMachine::IsScreenOnStrengthen()
+bool PowerStateMachine::IsScreenOnWithRechecking()
 {
     if (IsScreenOn()) {
         return true;

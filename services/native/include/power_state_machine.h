@@ -138,7 +138,7 @@ public:
     bool RestoreScreenOffTimeInner();
     void ReceiveScreenEvent(bool isScreenOn);
     bool IsScreenOn(bool needPrintLog = true);
-    bool IsScreenOnStrengthen();
+    bool IsScreenOnWithRechecking();
     bool IsScreenOnAcqLock();
     bool IsStateTurningAwake() const;
     bool IsFoldScreenOn();
