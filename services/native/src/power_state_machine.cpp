@@ -289,8 +289,7 @@ void PowerStateMachine::InitState()
     return;
 #endif
     POWER_HILOGI(FEATURE_POWER_STATE, "Init power state");
-    if (IsScreenOnStrengthen() ||
-        switchAction_->HandleSwitchAction(SwitchActionType::IS_SCREEN_ON) == SwitchActionRet::IS_SCREEN_ON) {
+    if (IsScreenOnStrengthen()) {
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::DISPLAY, "SCREEN_STATE",
             HiviewDFX::HiSysEvent::EventType::STATISTIC, "STATE", DISPLAY_ON);
