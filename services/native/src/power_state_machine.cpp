@@ -289,8 +289,7 @@ void PowerStateMachine::InitState()
     return;
 #endif
     POWER_HILOGI(FEATURE_POWER_STATE, "Init power state");
-    if (IsScreenOn() ||
-        switchAction_->HandleSwitchAction(SwitchActionType::IS_SCREEN_ON) == SwitchActionRet::IS_SCREEN_ON) {
+    if (IsScreenOnWithRechecking()) {
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::DISPLAY, "SCREEN_STATE",
             HiviewDFX::HiSysEvent::EventType::STATISTIC, "STATE", DISPLAY_ON);
@@ -1114,6 +1113,19 @@ bool PowerStateMachine::IsScreenOn(bool needPrintLog)
         POWER_HILOGD(FEATURE_POWER_STATE, "Current screen is %{public}s", isScreenOn ? "ON" : "OFF");
     }
     return isScreenOn;
+}
+
+bool PowerStateMachine::IsScreenOnWithRechecking()
+{
+    if (IsScreenOn()) {
+        return true;
+    }
+
+    if (Rosen::ScreenManagerLite::GetInstance().GetScreenPower() == Rosen::ScreenPowerState::POWER_ON) {
+        return true;
+    }
+    
+    return switchAction_->HandleSwitchAction(SwitchActionType::IS_SCREEN_ON) == SwitchActionRet::IS_SCREEN_ON;
 }
 
 bool PowerStateMachine::IsScreenOnAcqLock()
