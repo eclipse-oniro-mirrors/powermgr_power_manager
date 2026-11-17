@@ -255,13 +255,9 @@ public:
     void OnUlsrTimerExpired();
 #endif
     void OnChargeStateChanged();
-
-    // Whether a call is active, queried through call_manager. Synchronous IPC, fails open.
     bool IsInCallState();
-    // Suspends the device through the state machine, reporting type as the suspend reason.
     void DoDelaySuspendDevice(SuspendDeviceType type);
-    // Cancels a pending delayed suspend task and clears its one-shot flag.
-    void CancelDelaySuspendTimer();
+    void CancelDelaySuspendTimer(UserActivityType type);
 
     inline PowerModeModule& GetPowerModeModule()
     {
@@ -501,8 +497,6 @@ private:
     sptr<UlsrCallbackHolder> ulsrCallbackHolder_ {nullptr};
 #endif
     std::shared_ptr<ScreenOffPreController> screenOffPreController_ {nullptr};
-    // One-shot guard, only the first call of a lid-close period arms the task.
-    std::atomic<bool> delaySuspendOnceUsed_ {false};
 #ifdef POWER_MANAGER_WAKEUP_ACTION
     std::shared_ptr<WakeupActionController> wakeupActionController_ {nullptr};
 #endif
