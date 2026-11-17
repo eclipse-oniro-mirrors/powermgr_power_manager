@@ -187,6 +187,7 @@ public:
         InterfaceCallFilteringStrategy strategy, const sptr<IRemoteObject>& token) override;
     virtual PowerErrors GetPowerConfig(const std::string& sceneName, std::string& configVal) override;
     virtual PowerErrors SetPowerConfig(const std::string& sceneName, const std::string& configVal) override;
+    virtual PowerErrors DelaySuspendDevice(SuspendDeviceType type, int64_t delayMs) override;
 
     void SetEnableDoze(bool enable);
     void RegisterShutdownCallback(const sptr<ITakeOverShutdownCallback>& callback, ShutdownPriority priority) override;
@@ -254,6 +255,13 @@ public:
     void OnUlsrTimerExpired();
 #endif
     void OnChargeStateChanged();
+
+    // Whether a call is active, queried through call_manager. Synchronous IPC, fails open.
+    bool IsInCallState();
+    // Suspends the device through the state machine, reporting type as the suspend reason.
+    void DoDelaySuspendDevice(SuspendDeviceType type);
+    // Cancels a pending delayed suspend task and clears its one-shot flag.
+    void CancelDelaySuspendTimer();
 
     inline PowerModeModule& GetPowerModeModule()
     {
@@ -381,6 +389,8 @@ private:
     static constexpr int32_t INIT_KEY_MONITOR_DELAY_MS = 1000;
     static constexpr int32_t HALL_REPORT_INTERVAL = 0;
     static constexpr uint32_t HALL_SAMPLING_RATE = 100000000;
+    // Upper bound of the delay accepted by DelaySuspendDevice.
+    static constexpr int64_t DELAY_SUSPEND_MAX_DELAY_MS = 60000;
     static constexpr const char* SETTING_POWER_WAKEUP_DOUBLE_KEY {"settings.power.wakeup_double_click"};
     static std::atomic_bool isBootCompleted_;
     static std::atomic_bool isNeedReInit_ ;
@@ -491,6 +501,8 @@ private:
     sptr<UlsrCallbackHolder> ulsrCallbackHolder_ {nullptr};
 #endif
     std::shared_ptr<ScreenOffPreController> screenOffPreController_ {nullptr};
+    // One-shot guard, only the first call of a lid-close period arms the task.
+    std::atomic<bool> delaySuspendOnceUsed_ {false};
 #ifdef POWER_MANAGER_WAKEUP_ACTION
     std::shared_ptr<WakeupActionController> wakeupActionController_ {nullptr};
 #endif

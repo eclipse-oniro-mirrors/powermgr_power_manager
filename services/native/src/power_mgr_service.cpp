@@ -61,6 +61,9 @@
 #ifdef HAS_DEVICE_STANDBY_PART
 #include "standby_service_client.h"
 #endif
+#ifdef HAS_TELEPHONY_CALL_MANAGER_PART
+#include "call_manager_client.h"
+#endif
 #ifdef POWER_MANAGER_ENABLE_CHARGING_TYPE_SETTING
 #include "battery_srv_client.h"
 #endif
@@ -101,6 +104,10 @@ constexpr int32_t WAKEUP_LOCK_TIMEOUT_MS = 5000;
 constexpr int32_t SET_SUSPEND_TAG_TIMEOUT_MS = 40000; // ULSR_SYNC_CALLBACK_TIMEOUT_MS + 10000
 // POWERKEY_BLOCKED_FOLD_MODE_NONE(-1) means not configured / feature disabled.
 static constexpr int32_t POWERKEY_BLOCKED_FOLD_MODE_NONE = -1;
+#ifdef HAS_TELEPHONY_CALL_MANAGER_PART
+// SA id of call_manager, required by CallManagerClient::Init().
+constexpr int32_t TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID = 4005;
+#endif
 #ifdef POWER_MANAGER_ENABLE_SUSPEND_WITH_TAG
 // Force trigger ULSR wakeup callback if ULSR has been blocked for more than 60s
 constexpr int32_t ULSR_TIMER_TIMEOUT_MS = 60000;
@@ -707,6 +714,8 @@ void PowerMgrService::SwitchSubscriberInit()
                     POWER_HILOGE(FEATURE_INPUT, "get wakeupController instance error");
                     return;
                 }
+                // The lid is open again, a pending delay suspend task must not fire.
+                CancelDelaySuspendTimer();
                 auto switchAction = powerStateMachine_->GetSwitchActionPtr();
                 if (switchAction != nullptr) {
                     switchAction->HandleSwitchAction(SwitchActionType::SWITCH_OPEN);
@@ -891,6 +900,8 @@ void PowerMgrService::Reset()
         // release one strong reference to ffrtTimer
         suspendController_->Reset();
     }
+    // must happen before ffrtTimer_ is released, the pending task holds a raw this pointer
+    CancelDelaySuspendTimer();
     ffrtTimer_.reset(); // all strong references gone, ffrtTimer will be destructed.
     if (screenOffPreController_) {
         // another queue without using FFRTTimer, leave it as is for now.
@@ -1476,6 +1487,20 @@ bool PowerMgrService::RefreshActivity(int64_t callTimeMs, UserActivityType type,
 bool PowerMgrService::RefreshActivityInner(int64_t callTimeMs, UserActivityType type, bool needChangeBacklight)
 {
     std::lock_guard lock(screenMutex_);
+    // Cancel before the throttling gate below, otherwise a throttled refresh leaves the task armed.
+    // OTHER/SWITCH/CABLE are machine-generated, the lid-close flow itself reports SWITCH.
+    switch (type) {
+        // NOLINTNEXTLINE(WordsTool.6) The underlying interface has a fixed naming convention UserActivity
+        case UserActivityType::USER_ACTIVITY_TYPE_OTHER:
+        // NOLINTNEXTLINE(WordsTool.6) The underlying interface has a fixed naming convention UserActivity
+        case UserActivityType::USER_ACTIVITY_TYPE_SWITCH:
+        // NOLINTNEXTLINE(WordsTool.6) The underlying interface has a fixed naming convention UserActivity
+        case UserActivityType::USER_ACTIVITY_TYPE_CABLE:
+            break;
+        default:
+            CancelDelaySuspendTimer();
+            break;
+    }
     // reuse the deprecated/unused variable to label a refresh action which explicitly ignores throttling period.
     if (callTimeMs != 0 && powerStateMachine_->CheckRefreshTime()) {
         return false;
@@ -3549,6 +3574,137 @@ PowerErrors PowerMgrService::SetInterfaceCallFilteringStrategy(
             PowerStateMachine::ScreenOffBlockType::SUSPEND_DEVICE_INTERFACE);
     }
     DeathRecipientManager::GetInstance().AddDeathRecipient(token, {cb, __func__, pid, uid});
+    return PowerErrors::ERR_OK;
+}
+
+bool PowerMgrService::IsInCallState()
+{
+#ifdef HAS_TELEPHONY_CALL_MANAGER_PART
+    // call_manager is optional and starts after powermgr, every failure below reads as "no call".
+    auto callManagerClient = DelayedSingleton<Telephony::CallManagerClient>::GetInstance();
+    if (callManagerClient == nullptr) {
+        POWER_HILOGW(FEATURE_SUSPEND, "call_manager client is null, treat as not in call");
+        return false;
+    }
+    // Init() is idempotent and only resolves the proxy, without it GetCallState() stays UNINIT.
+    callManagerClient->Init(TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID);
+    // Whitelist on purpose: on failure call_manager returns a telephony ErrCode, which is also a
+    // large positive number, so "state > 0" would read every error as "in call".
+    auto isActiveCall = [](int32_t callState) {
+        return callState == static_cast<int32_t>(Telephony::CallStateToApp::CALL_STATE_RINGING) ||
+            callState == static_cast<int32_t>(Telephony::CallStateToApp::CALL_STATE_OFFHOOK) ||
+            callState == static_cast<int32_t>(Telephony::CallStateToApp::CALL_STATE_ANSWERED);
+    };
+    int32_t state = callManagerClient->GetCallState();
+    POWER_HILOGI(FEATURE_SUSPEND, "call_manager state: %{public}d", state);
+    if (isActiveCall(state)) {
+        return true;
+    }
+    // VoIP calls are not covered by the cellular state above, query them separately.
+    int32_t voipState = callManagerClient->GetVoipCallState();
+    POWER_HILOGI(FEATURE_SUSPEND, "call_manager voip state: %{public}d", voipState);
+    return isActiveCall(voipState);
+#else
+    POWER_HILOGI(FEATURE_SUSPEND, "call_manager part is not compiled in, treat as not in call");
+    return false;
+#endif
+}
+
+void PowerMgrService::CancelDelaySuspendTimer()
+{
+    // Clearing the flag is what disarms the task, DoDelaySuspendDevice() re-checks it on entry.
+    if (!delaySuspendOnceUsed_.exchange(false)) {
+        return;
+    }
+    if (ffrtTimer_ != nullptr) {
+        ffrtTimer_->CancelTimer(TIMER_ID_SCREEN_TIMEOUT_CHECK);
+    }
+    POWER_HILOGI(COMP_SVC, "Delay suspend task cancelled");
+}
+
+void PowerMgrService::DoDelaySuspendDevice(SuspendDeviceType type)
+{
+    // Runs on the ffrt timer queue. Do not take screenMutex_, it is non-recursive.
+    if (!delaySuspendOnceUsed_.exchange(false)) {
+        POWER_HILOGI(FEATURE_SUSPEND, "Delay suspend task was cancelled, skip");
+        return;
+    }
+    std::lock_guard lock(suspendMutex_);
+    if (shutdownController_->IsShuttingDown()) {
+        POWER_HILOGW(FEATURE_SUSPEND, "System is shutting down, can't do delay suspend");
+        return;
+    }
+    // Re-check the filter, the strategy may change during the delay window. This is a local map
+    // lookup under a leaf mutex, so unlike a call-state IPC it is safe on the shared ffrt queue.
+    auto blockType = PowerStateMachine::MapReasonToBlockType(type);
+    if (blockType != PowerStateMachine::ScreenOffBlockType::NONE &&
+        powerStateMachine_->IsScreenOffBlocked(blockType)) {
+        POWER_HILOGI(FEATURE_SUSPEND, "Delay suspend blocked by screen-off filter, reason: %{public}d",
+            static_cast<int32_t>(type));
+        return;
+    }
+    // No call check here, a synchronous IPC on the shared ffrt queue is not allowed.
+    // The state machine cancels the pending screen-off timers, so the device still reaches S3.
+    POWER_HILOGI(FEATURE_SUSPEND, "[UL_POWER] Delay suspend task fired, reason: %{public}d",
+        static_cast<int32_t>(type));
+    powerStateMachine_->SuspendDeviceInner(0, GetTickCount(), type, false, false);
+}
+
+PowerErrors PowerMgrService::DelaySuspendDevice(SuspendDeviceType type, int64_t delayMs)
+{
+    pid_t pid = IPCSkeleton::GetCallingPid();
+    auto uid = IPCSkeleton::GetCallingUid();
+    // Never take screenMutex_ here: the blocked branch below locks it and the mutex is
+    // non-recursive. IsInCallState() is a synchronous IPC, so it stays outside suspendMutex_ too.
+    if (!Permission::IsSystem()) {
+        POWER_HILOGW(FEATURE_SUSPEND, "DelaySuspendDevice failed, System permission intercept");
+        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    }
+    if (!Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
+        POWER_HILOGW(FEATURE_SUSPEND, "DelaySuspendDevice failed, The caller does not have the permission");
+        return PowerErrors::ERR_PERMISSION_DENIED;
+    }
+    if (delayMs < 0 || delayMs > DELAY_SUSPEND_MAX_DELAY_MS) {
+        POWER_HILOGW(FEATURE_SUSPEND, "DelaySuspendDevice invalid delay=%{public}lld",
+            static_cast<long long>(delayMs));
+        return PowerErrors::ERR_PARAM_INVALID;
+    }
+    if (shutdownController_->IsShuttingDown()) {
+        POWER_HILOGW(FEATURE_SUSPEND, "System is shutting down, can't do delay suspend");
+        return PowerErrors::ERR_OK;
+    }
+    POWER_HILOGI(FEATURE_SUSPEND, "DelaySuspendDevice pid: %{public}d, uid: %{public}d, reason: %{public}d, "
+        "delay: %{public}lld", pid, uid, static_cast<int32_t>(type), static_cast<long long>(delayMs));
+    // Must stay synchronous: the caller powers on the outer screen only on ERR_SCREEN_OFF_BLOCKED.
+    if (IsInCallState()) {
+        POWER_HILOGI(FEATURE_SUSPEND, "DelaySuspendDevice blocked, a call is active");
+        // Keep the normal screen-off timeout running, callTimeMs 0 bypasses the throttling period.
+        // NOLINTNEXTLINE(WordsTool.6) The underlying interface has a fixed naming convention UserActivity
+        RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_SWITCH, false);
+        return PowerErrors::ERR_SCREEN_OFF_BLOCKED;
+    }
+    // Honour registered screen-off filters, e.g. kiosk mode blocks lid-close screen-off.
+    auto blockType = PowerStateMachine::MapReasonToBlockType(type);
+    if (blockType != PowerStateMachine::ScreenOffBlockType::NONE &&
+        powerStateMachine_->IsScreenOffBlocked(blockType)) {
+        POWER_HILOGI(FEATURE_SUSPEND, "DelaySuspendDevice blocked by screen-off filter, reason: %{public}d",
+            static_cast<int32_t>(type));
+        return PowerErrors::ERR_SCREEN_OFF_BLOCKED;
+    }
+    // One shot per lid-close period, cleared by the cancel path, the task body and Reset().
+    if (delaySuspendOnceUsed_.exchange(true)) {
+        POWER_HILOGI(FEATURE_SUSPEND, "Delay suspend task already armed, ignore this request");
+        return PowerErrors::ERR_OK;
+    }
+    if (ffrtTimer_ == nullptr) {
+        delaySuspendOnceUsed_.store(false);
+        POWER_HILOGE(FEATURE_SUSPEND, "DelaySuspendDevice failed, ffrtTimer is null");
+        return PowerErrors::ERR_FAILURE;
+    }
+    // TIMER_ID_SCREEN_TIMEOUT_CHECK is an unused slot of the shared ffrt timer. Do not use
+    // PowerStateMachine::SetDelayTimer(), its event id and timer id ranges do not match.
+    std::function<void()> task = [this, type]() { DoDelaySuspendDevice(type); };
+    ffrtTimer_->SetTimer(TIMER_ID_SCREEN_TIMEOUT_CHECK, task, static_cast<uint32_t>(delayMs));
     return PowerErrors::ERR_OK;
 }
 

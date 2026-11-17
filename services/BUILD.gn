@@ -273,6 +273,14 @@ ohos_shared_library("powermgrservice") {
         defines += [ "HAS_RESOURCE_SCHEDULE_SERVICE_PART" ]
       }
 
+  # telephony is an optional part: without it PowerMgrService::IsInCallState() is compiled out and
+  # always reports "no call", which is the fail-open direction (never keeps the device awake).
+  if (defined(global_parts_info) &&
+      defined(global_parts_info.telephony_call_manager)) {
+    defines += [ "HAS_TELEPHONY_CALL_MANAGER_PART" ]
+    external_deps += [ "call_manager:tel_call_manager_api" ]
+  }
+
   if (power_manager_feature_external_screen_management) {
     defines += [ "POWER_MANAGER_ENABLE_EXTERNAL_SCREEN_MANAGEMENT" ]
   }

@@ -140,8 +140,11 @@ interface OHOS.PowerMgr.IPowerMgr {
 
     void ForceSuspendDeviceIgnoringWakelockIpc([in] String tag);
     void InterruptForceSuspendIpc();
+
     void RegisterSyncHibernateCallbackExIpc([in] ISyncHibernateCallback powerCallback,
         [in] int priorityValue, [out] int powerError);
     void UnRegisterSyncHibernateCallbackExIpc([in] ISyncHibernateCallback powerCallback,
         [out] int powerError);
+
+    void DelaySuspendDeviceIpc([in] int type, [in] long delayMs, [out] int powerError);
 }

@@ -977,6 +977,15 @@ PowerErrors PowerMgrClient::SetInterfaceCallFilteringStrategy(InterfaceCallFilte
     return static_cast<PowerErrors>(powerError);
 }
 
+PowerErrors PowerMgrClient::DelaySuspendDevice(SuspendDeviceType type, int64_t delayMs)
+{
+    sptr<IPowerMgr> proxy = GetPowerMgrProxy();
+    RETURN_IF_WITH_RET(proxy == nullptr, PowerErrors::ERR_CONNECTION_FAIL);
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
+    proxy->DelaySuspendDeviceIpc(static_cast<int32_t>(type), delayMs, powerError);
+    return static_cast<PowerErrors>(powerError);
+}
+
 PowerErrors PowerMgrClient::RegisterRunningLockChangedCallback(
     const sptr<IRunningLockChangedCallback>& callback, uint64_t displayId)
 {

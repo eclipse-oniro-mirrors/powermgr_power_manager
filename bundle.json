@@ -79,6 +79,7 @@
                 "access_token",
                 "battery_manager",
                 "bounds_checking_function",
+                "call_manager",
                 "cJSON",
                 "common_event_service",
                 "config_policy",
