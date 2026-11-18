@@ -15,7 +15,9 @@
 
 #include "running_lock_test.h"
 
+#include <atomic>
 #include <ipc_skeleton.h>
+#include <thread>
 
 #include "actions/irunning_lock_action.h"
 #include "power_mgr_proxy.h"
@@ -32,8 +34,8 @@ namespace {
 constexpr int32_t VECTOR_MAX_SIZE = 102400;
 constexpr int32_t TEST_PROCESS_COUNT = 2000;
 constexpr int32_t US_PER_MS = 1000;
-constexpr int32_t app0Uid = 8;
-constexpr int32_t app1Uid = 9;
+constexpr int32_t APP0_UID = 8;
+constexpr int32_t APP1_UID = 9;
 
 // Background running locks are activated through the power HDI ("/sys/power/wake_lock"),
 // which is unavailable on devices whose kernel lacks it (e.g. emulator); such devices
@@ -654,5 +656,68 @@ HWTEST_F(RunningLockTest, RunningLockTest022, TestSize.Level1)
 
     EXPECT_EQ(result, ERR_INVALID_DATA);
     POWER_HILOGI(LABEL_TEST, "RunningLockTest022 function end!");
+}
+
+/**
+ * @tc.name: RunningLockTest030
+ * @tc.desc: Test RunningLockProxy DumpProxyInfo basic functionality
+ * @tc.type: FUNC
+ */
+HWTEST_F(RunningLockTest, RunningLockTest030, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RunningLockTest030 function start!");
+    auto runninglockProxy = std::make_shared<RunningLockProxy>();
+    sptr<IRemoteObject> remoteObj = new RunningLockTokenStub();
+    runninglockProxy->AddRunningLock(0, 0, remoteObj);
+    std::string result = runninglockProxy->DumpProxyInfo();
+    EXPECT_FALSE(result.empty());
+    runninglockProxy->RemoveRunningLock(0, 0, remoteObj);
+    result = runninglockProxy->DumpProxyInfo();
+    EXPECT_TRUE(result.empty());
+    runninglockProxy->Clear();
+    POWER_HILOGI(LABEL_TEST, "RunningLockTest030 function end!");
+}
+
+/**
+ * @tc.name: RunningLockTest031
+ * @tc.desc: Test concurrent DumpRunningLockInfo vs ProxyRunningLock under lockMutex_ protection
+ * @tc.type: FUNC
+ */
+HWTEST_F(RunningLockTest, RunningLockTest031, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "RunningLockTest031 function start!");
+    auto pms = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    pms->OnStart();
+    auto runningLockMgr = pms->GetRunningLockMgr();
+    ASSERT_NE(runningLockMgr, nullptr);
+
+    sptr<IPowerMgr> ptr;
+    ptr.ForceSetRefPtr(static_cast<IPowerMgr*>(pms.GetRefPtr()));
+    pms.GetRefPtr()->IncStrongRef(pms.GetRefPtr());
+    RunningLock runninglock(ptr, "test031_lock", RunningLockType::RUNNINGLOCK_BACKGROUND);
+    runninglock.Init();
+
+    pid_t curPid = getpid();
+    pid_t curUid = getuid();
+    // Concurrent Dump (pms->DumpRunningLockInfo holds lockMutex_) vs
+    // ProxyRunningLock (pms->ProxyRunningLock holds lockMutex_).
+    // lockMutex_ serializes both paths, preventing proxyMap_ concurrent access.
+    std::atomic<bool> stop(false);
+    std::thread dumpThread([&]() {
+        while (!stop.load(std::memory_order_relaxed)) {
+            std::string result;
+            pms->DumpRunningLockInfo(result);
+        }
+    });
+    std::thread writerThread([&]() {
+        for (int i = 0; i < 50; ++i) {
+            pms->ProxyRunningLock(true, curPid, curUid);
+            pms->ProxyRunningLock(false, curPid, curUid);
+        }
+        stop.store(true, std::memory_order_relaxed);
+    });
+    dumpThread.join();
+    writerThread.join();
+    POWER_HILOGI(LABEL_TEST, "RunningLockTest031 function end!");
 }
 } // namespace

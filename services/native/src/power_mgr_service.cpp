@@ -2087,6 +2087,15 @@ bool PowerMgrService::ResetRunningLocks()
     return true;
 }
 
+void PowerMgrService::DumpRunningLockInfo(std::string& result)
+{
+    std::lock_guard lock(lockMutex_);
+    if (runningLockMgr_ == nullptr) {
+        return;
+    }
+    runningLockMgr_->DumpInfo(result);
+}
+
 bool PowerMgrService::RegisterPowerStateCallback(const sptr<IPowerStateCallback>& callback, bool isSync)
 {
     std::lock_guard lock(stateMutex_);

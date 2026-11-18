@@ -23,75 +23,78 @@ namespace PowerMgr {
 ShutdownClient::ShutdownClient() {}
 ShutdownClient::~ShutdownClient() {}
 
-ErrCode ShutdownClient::Connect()
-{
-    proxy_ = ClientLifeCycle::GetProxy();
-    return proxy_ != nullptr ? ERR_OK : ERR_NO_INIT;
-}
-
 void ShutdownClient::RegisterShutdownCallback(
     const sptr<ITakeOverShutdownCallback>& callback, ShutdownPriority priority)
 {
-    RETURN_IF(Connect() != ERR_OK);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF(proxy == nullptr);
     int32_t priorityValue = static_cast<int32_t>(priority);
-    proxy_->RegisterShutdownCallbackIpc(callback, priorityValue);
+    proxy->RegisterShutdownCallbackIpc(callback, priorityValue);
 }
 
 void ShutdownClient::UnRegisterShutdownCallback(const sptr<ITakeOverShutdownCallback>& callback)
 {
-    RETURN_IF(Connect() != ERR_OK);
-    proxy_->UnRegisterShutdownCallbackIpc(callback);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF(proxy == nullptr);
+    proxy->UnRegisterShutdownCallbackIpc(callback);
 }
 
 void ShutdownClient::RegisterShutdownCallback(
     const sptr<IAsyncShutdownCallback>& callback, ShutdownPriority priority)
 {
-    RETURN_IF(Connect() != ERR_OK);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF(proxy == nullptr);
     int32_t priorityValue = static_cast<int32_t>(priority);
-    proxy_->RegisterShutdownCallbackIpc(callback, priorityValue);
+    proxy->RegisterShutdownCallbackIpc(callback, priorityValue);
 }
 
 void ShutdownClient::UnRegisterShutdownCallback(const sptr<IAsyncShutdownCallback>& callback)
 {
-    RETURN_IF(Connect() != ERR_OK);
-    proxy_->UnRegisterShutdownCallbackIpc(callback);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF(proxy == nullptr);
+    proxy->UnRegisterShutdownCallbackIpc(callback);
 }
 
 void ShutdownClient::RegisterShutdownCallback(
     const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority)
 {
-    RETURN_IF(Connect() != ERR_OK);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF(proxy == nullptr);
     int32_t priorityValue = static_cast<int32_t>(priority);
-    proxy_->RegisterShutdownCallbackIpc(callback, priorityValue);
+    proxy->RegisterShutdownCallbackIpc(callback, priorityValue);
 }
 
 void ShutdownClient::UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback)
 {
-    RETURN_IF(Connect() != ERR_OK);
-    proxy_->UnRegisterShutdownCallbackIpc(callback);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF(proxy == nullptr);
+    proxy->UnRegisterShutdownCallbackIpc(callback);
 }
 
 PowerErrors ShutdownClient::RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF_WITH_RET(proxy == nullptr, PowerErrors::ERR_CONNECTION_FAIL);
     int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
-    proxy_->RegisterShutdownCallbackIpc(callback, powerError);
+    proxy->RegisterShutdownCallbackIpc(callback, powerError);
     return static_cast<PowerErrors>(powerError);
 }
 
 PowerErrors ShutdownClient::UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback)
 {
-    RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF_WITH_RET(proxy == nullptr, PowerErrors::ERR_CONNECTION_FAIL);
     int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
-    proxy_->UnRegisterShutdownCallbackIpc(callback, powerError);
+    proxy->UnRegisterShutdownCallbackIpc(callback, powerError);
     return static_cast<PowerErrors>(powerError);
 }
 
 PowerErrors ShutdownClient::VoteShutdown(uint64_t identity)
 {
-    RETURN_IF_WITH_RET(Connect() != ERR_OK, PowerErrors::ERR_CONNECTION_FAIL);
+    auto proxy = ClientLifeCycle::GetProxy();
+    RETURN_IF_WITH_RET(proxy == nullptr, PowerErrors::ERR_CONNECTION_FAIL);
     int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
-    proxy_->VoteShutdownIpc(identity, powerError);
+    proxy->VoteShutdownIpc(identity, powerError);
     return static_cast<PowerErrors>(powerError);
 }
 } // namespace PowerMgr

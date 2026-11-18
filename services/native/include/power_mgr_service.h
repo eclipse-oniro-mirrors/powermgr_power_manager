@@ -269,6 +269,8 @@ public:
         return runningLockMgr_;
     }
 
+    void DumpRunningLockInfo(std::string& result);
+
     std::shared_ptr<PowerStateMachine> GetPowerStateMachine() const
     {
         return powerStateMachine_;

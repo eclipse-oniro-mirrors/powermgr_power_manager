@@ -1058,4 +1058,72 @@ HWTEST_F(PowerSuspendControllerTest,
     POWER_HILOGI(LABEL_TEST,
         "PowerSuspendControllerTest_SuspendWhenScreenOff_NullSwitchAction_NoCrash end");
 }
+
+/**
+ * @tc.name: PowerSuspendControllerTest025
+ * @tc.desc: test StartSleepTimer check-then-set is inside ffrtMutexMap_ critical section
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerSuspendControllerTest, PowerSuspendControllerTest025, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST, "PowerSuspendControllerTest025 function start!");
+    g_service->SuspendControllerInit();
+    ASSERT_NE(g_service->suspendController_, nullptr);
+    ASSERT_NE(g_service->suspendController_->stateMachine_, nullptr);
+
+    // Reset sleepTime_ to -1 via StopSleep to ensure the check-then-set
+    // path in StartSleepTimer is exercised (not the early-return branch).
+    g_service->suspendController_->StopSleep();
+    ASSERT_EQ(g_service->suspendController_->sleepTime_, -1);
+
+    // Call StartSleepTimer with ACTION_NONE to drive the check-then-set
+    // path now inside the ffrtMutexMap_ critical section.
+    g_service->suspendController_->StartSleepTimer(
+        SuspendDeviceType::SUSPEND_DEVICE_REASON_TIMEOUT,
+        static_cast<uint32_t>(SuspendAction::ACTION_NONE),
+        5000);
+    EXPECT_NE(g_service->suspendController_->sleepTime_, -1);
+
+    // StopSleep to reset and cancel the timer
+    g_service->suspendController_->StopSleep();
+    ASSERT_EQ(g_service->suspendController_->sleepTime_, -1);
+
+    POWER_HILOGI(LABEL_TEST, "PowerSuspendControllerTest025 function end!");
+}
+
+/**
+ * @tc.name: PowerSuspendControllerTest026
+ * @tc.desc: test concurrent StartSleepTimer + StopSleep verifies lock protection
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerSuspendControllerTest, PowerSuspendControllerTest026, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST, "PowerSuspendControllerTest026 function start!");
+    g_service->SuspendControllerInit();
+    ASSERT_NE(g_service->suspendController_, nullptr);
+
+    g_service->suspendController_->StopSleep();
+
+    // Concurrent StartSleepTimer + StopSleep: the lock ensures check-then-set
+    // and reset are serialized, preventing lost updates.
+    std::thread t1([&]() {
+        for (int i = 0; i < 20; ++i) {
+            g_service->suspendController_->StartSleepTimer(
+                SuspendDeviceType::SUSPEND_DEVICE_REASON_TIMEOUT,
+                static_cast<uint32_t>(SuspendAction::ACTION_NONE),
+                5000);
+        }
+    });
+    std::thread t2([&]() {
+        for (int i = 0; i < 20; ++i) {
+            g_service->suspendController_->StopSleep();
+        }
+    });
+    t1.join();
+    t2.join();
+    g_service->suspendController_->StopSleep();
+
+    POWER_HILOGI(LABEL_TEST, "PowerSuspendControllerTest026 function end!");
+}
+
 } // namespace

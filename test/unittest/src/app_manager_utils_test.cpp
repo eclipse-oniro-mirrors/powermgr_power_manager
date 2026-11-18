@@ -15,6 +15,9 @@
 
 #include "app_manager_utils_test.h"
 
+#include <thread>
+#include <vector>
+
 #include "app_manager_utils.h"
 #include "power_log.h"
 
@@ -66,6 +69,60 @@ HWTEST_F(AppManagerUtilsTest, AppManagerUtilsTest003, TestSize.Level0)
     AppManagerUtils::GetForegroundBundleNames(bundleNames);
     EXPECT_FALSE(bundleNames.size() > 5);
     POWER_HILOGI(LABEL_TEST, "AppManagerUtilsTest003 function end!");
+}
+
+/**
+ * @tc.name: AppManagerUtilsTest004
+ * @tc.desc: test concurrent GetForegroundApplications is thread-safe without app manager service
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppManagerUtilsTest, AppManagerUtilsTest004, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST, "AppManagerUtilsTest004 function start!");
+    const int THREAD_COUNT = 8;
+    std::vector<std::thread> threads;
+    std::vector<std::vector<AppStateData>> results(THREAD_COUNT);
+    for (int i = 0; i < THREAD_COUNT; ++i) {
+        threads.emplace_back([&results, i]() {
+            AppManagerUtils::GetForegroundApplications(results[i]);
+        });
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+    // All threads must get the same result count (thread-safe, no data race)
+    size_t expectedSize = results[0].size();
+    for (size_t i = 1; i < results.size(); ++i) {
+        EXPECT_EQ(results[i].size(), expectedSize);
+    }
+    POWER_HILOGI(LABEL_TEST, "AppManagerUtilsTest004 function end!");
+}
+
+/**
+ * @tc.name: AppManagerUtilsTest005
+ * @tc.desc: test concurrent GetApiTargetVersion returns consistent value via atomic
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppManagerUtilsTest, AppManagerUtilsTest005, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST, "AppManagerUtilsTest005 function start!");
+    const int THREAD_COUNT = 4;
+    std::vector<std::thread> threads;
+    std::vector<int32_t> results(THREAD_COUNT, -999);
+    for (int i = 0; i < THREAD_COUNT; ++i) {
+        threads.emplace_back([&results, i]() {
+            results[i] = AppManagerUtils::GetApiTargetVersion();
+        });
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+    // All threads must get the same value (atomic guarantees consistent read)
+    // Valid results: >= 0 (HAS_ABILITY_RUNTIME_PART) or -1 (no ability runtime part)
+    for (int32_t version : results) {
+        EXPECT_EQ(version, results[0]);
+    }
+    POWER_HILOGI(LABEL_TEST, "AppManagerUtilsTest005 function end!");
 }
 } // PowerMgr
 } // OHOS

@@ -744,12 +744,13 @@ void SuspendController::StartSleepTimer(SuspendDeviceType reason, uint32_t actio
         return;
     }
 
+    ffrtMutexMap_.Lock(TIMER_ID_SLEEP);
     if ((timeout > sleepTime_) && (sleepTime_ != -1)) {
+        ffrtMutexMap_.Unlock(TIMER_ID_SLEEP);
         POWER_HILOGI(FEATURE_SUSPEND, "already have a sleep event (%{public}" PRId64 " > %{public}" PRId64 ")", timeout,
             sleepTime_);
         return;
     }
-    ffrtMutexMap_.Lock(TIMER_ID_SLEEP);
     sleepTime_ = timeout;
     sleepReason_ = reason;
     sleepAction_ = action;

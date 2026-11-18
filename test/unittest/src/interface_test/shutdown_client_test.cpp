@@ -18,6 +18,8 @@
 #include <condition_variable>
 #include <future>
 #include <mutex>
+#include <thread>
+#include <vector>
 #include "power_log.h"
 #include "power_mgr_client.h"
 #include "power_mgr_service.h"
@@ -327,6 +329,32 @@ HWTEST_F(ShutdownClientTest, GetShutdownReason002, TestSize.Level0)
     ret = powerMgrClient.GetShutdownReason(setReasonSecond);
     EXPECT_TRUE(ret != PowerErrors::ERR_PERMISSION_DENIED);
     POWER_HILOGI(LABEL_TEST, "GetShutdownReason002 function end!");
+}
+
+/**
+ * @tc.name: RegisterShutdownCallback002
+ * @tc.desc: Test concurrent Register/UnRegister verifies no sptr tearing
+ * @tc.type: FUNC
+ */
+HWTEST_F(ShutdownClientTest, RegisterShutdownCallback002, TestSize.Level0)
+{
+    POWER_HILOGI(LABEL_TEST, "RegisterShutdownCallback002 function start!");
+    // With proxy_ cache removed, each call gets a local proxy from
+    // ClientLifeCycle::GetProxy() (already locked), eliminating sptr tearing.
+    const int THREAD_COUNT = 4;
+    std::vector<std::thread> threads;
+    for (int i = 0; i < THREAD_COUNT; ++i) {
+        threads.emplace_back([]() {
+            auto& shutdownClient = ShutdownClient::GetInstance();
+            sptr<IAsyncShutdownCallback> asyncCb = new AsyncShutdownCallback();
+            shutdownClient.RegisterShutdownCallback(asyncCb);
+            shutdownClient.UnRegisterShutdownCallback(asyncCb);
+        });
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+    POWER_HILOGI(LABEL_TEST, "RegisterShutdownCallback002 function end!");
 }
 } // namespace UnitTest
 } // namespace PowerMgr
