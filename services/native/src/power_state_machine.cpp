@@ -346,10 +346,10 @@ void PowerStateMachine::EmplaceAwake()
                 PowerUtils::GetReasonTypeString(reason).c_str());
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
             HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER_UE, "SCREEN_ON",
-                HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PNAMEID", "PowerManager", "PVERSIONID", "1.0",
-                "REASON", PowerUtils::GetReasonTypeString(reason).c_str());
+                HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PNI", "PowerManager", "PVI", "1.0",
+                "R", PowerUtils::GetReasonTypeString(reason).c_str());
             HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "SCREEN_ON",
-                HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "REASON", PowerUtils::GetReasonTypeString(reason).c_str());
+                HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "R", PowerUtils::GetReasonTypeString(reason).c_str());
 #endif
             mDeviceState_.screenState.lastOnTime = GetTickCount();
             auto targetState = DisplayState::DISPLAY_ON;
@@ -400,8 +400,8 @@ void PowerStateMachine::EmplaceInactive()
 #endif
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
             HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER_UE, "SCREEN_OFF",
-                HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PNAMEID", "PowerManager", "PVERSIONID", "1.0",
-                "REASON", PowerUtils::GetReasonTypeString(reason).c_str());
+                HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PNI", "PowerManager", "PVI", "1.0",
+                "R", PowerUtils::GetReasonTypeString(reason).c_str());
 #endif
             mDeviceState_.screenState.lastOffTime = GetTickCount();
             DisplayState state = DisplayState::DISPLAY_OFF;
@@ -2326,16 +2326,16 @@ void PowerStateMachine::WriteHiSysEvent(TransitResult ret, StateChangeReason rea
     if (endTimeMs - beginTimeMs > SETSTATE_ON_TIMEOUT_MS && state == PowerState::AWAKE) {
         POWER_HILOGI(FEATURE_POWER_STATE, "set state on timeout=%{public}d", (endTimeMs - beginTimeMs));
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "INTERFACE_CONSUMING_TIMEOUT",
-            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PID", pid, "UID", uid, "TYPE",
+            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "P", pid, "U", uid, "T",
             static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_SETSTATE_ON),
-            "REASON", PowerUtils::GetReasonTypeString(reason).c_str(), "TIME", (endTimeMs - beginTimeMs));
+            "R", PowerUtils::GetReasonTypeString(reason).c_str(), "TI", (endTimeMs - beginTimeMs));
     } else if ((endTimeMs - beginTimeMs > SETSTATE_ON_TIMEOUT_MS) &&
         (endTimeMs - beginTimeMs < SETSTATE_OFF_TIMEOUT_MS) && (state == PowerState::INACTIVE)) {
         POWER_HILOGI(FEATURE_POWER_STATE, "set state off timeout=%{public}d", (endTimeMs - beginTimeMs));
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "INTERFACE_CONSUMING_TIMEOUT",
-            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PID", pid, "UID", uid, "TYPE",
+            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "P", pid, "U", uid, "T",
             static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_SETSTATE_OFF),
-            "REASON", PowerUtils::GetReasonTypeString(reason).c_str(), "TIME", (endTimeMs - beginTimeMs));
+            "R", PowerUtils::GetReasonTypeString(reason).c_str(), "TI", (endTimeMs - beginTimeMs));
     }
 #endif
 }
@@ -3052,8 +3052,8 @@ void PowerStateMachine::ReportSuspendStart(int32_t uid, int32_t reason, bool for
     int8_t externalScreen = 0;
     GetSceneStatusInfo(switchOpen, chargeConnect, externalScreen);
     HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "SUSPEND_STATISTIC",
-        HiviewDFX::HiSysEvent::EventType::STATISTIC, "FORCE", static_cast<int8_t>(force), "UID", uid, "REASON", reason,
-        "SWITCH", switchOpen, "CHARGE", chargeConnect, "EXSCREEN", externalScreen);
+        HiviewDFX::HiSysEvent::EventType::STATISTIC, "F", static_cast<int8_t>(force), "U", uid, "R", reason,
+        "SW", switchOpen, "CH", chargeConnect, "EX", externalScreen);
 }
 
 void PowerStateMachine::ReportWakeupStart(int32_t uid, int32_t reason)
@@ -3063,8 +3063,8 @@ void PowerStateMachine::ReportWakeupStart(int32_t uid, int32_t reason)
     int8_t externalScreen = 0;
     GetSceneStatusInfo(switchOpen, chargeConnect, externalScreen);
     HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "WAKEUP_STATISTIC",
-        HiviewDFX::HiSysEvent::EventType::STATISTIC, "UID", uid, "REASON", reason, "SWITCH", switchOpen, "CHARGE",
-        chargeConnect, "EXSCREEN", externalScreen);
+        HiviewDFX::HiSysEvent::EventType::STATISTIC, "U", uid, "R", reason, "SW", switchOpen, "CH",
+        chargeConnect, "EX", externalScreen);
 }
 
 void PowerStateMachine::ReportHibernateStart(int32_t uid, const std::string& reason, bool clearMemory)

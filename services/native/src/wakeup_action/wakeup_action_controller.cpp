@@ -95,7 +95,7 @@ bool WakeupActionController::ExecuteByGetReason(const std::string& reason)
 #ifdef HAS_HIVIEWDFX_HISYSEVENT_PART
     std::string str = reason + ":" + std::to_string(sourceMap_[reason]->GetAction());
     HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "WAKEUP_STATISTIC",
-        HiviewDFX::HiSysEvent::EventType::STATISTIC, "WAKEUP_REASON", str.c_str());
+        HiviewDFX::HiSysEvent::EventType::STATISTIC, "WR", str.c_str());
 #endif
     HandleAction(reason);
     return true;

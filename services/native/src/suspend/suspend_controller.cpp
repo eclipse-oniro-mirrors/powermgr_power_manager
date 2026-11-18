@@ -1063,9 +1063,9 @@ void SuspendController::TriggerForceSuspendMemCallbacks(bool isWakeup)
         pid_t pid = IPCSkeleton::GetCallingPid();
         auto uid = IPCSkeleton::GetCallingUid();
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "INTERFACE_CONSUMING_TIMEOUT",
-            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PID", pid, "UID", uid,
-            "TYPE", static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_SYNC_SLEEP_CALLBACK),
-            "REASON", isWakeup ? "wakeup" : "sleep", "TIME", elapsedMs);
+            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "P", pid, "U", uid,
+            "T", static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_SYNC_SLEEP_CALLBACK),
+            "R", isWakeup ? "wakeup" : "sleep", "TI", elapsedMs);
 #endif
     }
 }

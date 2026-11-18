@@ -143,9 +143,9 @@ void UlsrCallbackHolder::ReportSyncUlsrResult(int64_t elapsedTimeMs, bool isTime
         pid_t pid = IPCSkeleton::GetCallingPid();
         auto uid = IPCSkeleton::GetCallingUid();
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "INTERFACE_CONSUMING_TIMEOUT",
-            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PID", pid, "UID", uid,
-            "TYPE", static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_ULSR_SYNC_CALLBACK),
-            "REASON", reasonStr, "TIME", static_cast<int32_t>(elapsedTimeMs));
+            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "P", pid, "U", uid,
+            "T", static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_ULSR_SYNC_CALLBACK),
+            "R", reasonStr, "TI", static_cast<int32_t>(elapsedTimeMs));
 #endif
     }
 }

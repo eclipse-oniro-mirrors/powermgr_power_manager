@@ -192,7 +192,7 @@ void SystemSuspendController::Suspend(
     HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "DO_SUSPEND", HiviewDFX::HiSysEvent::EventType::BEHAVIOR,
         "TYPE", static_cast<int32_t>(1));
     HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "SUSPEND_STATISTIC",
-        HiviewDFX::HiSysEvent::EventType::STATISTIC, "DO_SUSPEND", static_cast<int8_t>(true));
+        HiviewDFX::HiSysEvent::EventType::STATISTIC, "DSP", static_cast<int8_t>(true));
 #endif
     if (force) {
         powerInterface->ForceSuspend();
