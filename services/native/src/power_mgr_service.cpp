@@ -1958,9 +1958,9 @@ PowerErrors PowerMgrService::Lock(const sptr<IRemoteObject>& remoteObj, int32_t 
     if (endTimeMs - beginTimeMs > RUNNINGLOCK_TIMEOUT_MS) {
         POWER_HILOGI(FEATURE_RUNNING_LOCK, "Lock interface timeout=%{public}d", (endTimeMs - beginTimeMs));
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "INTERFACE_CONSUMING_TIMEOUT",
-            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PID", pid, "UID", uid, "TYPE",
-            static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_RUNNINGLOCK_LOCK), "REASON", "",
-            "TIME", (endTimeMs - beginTimeMs));
+            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "P", pid, "U", uid, "T",
+            static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_RUNNINGLOCK_LOCK), "R", "",
+            "TI", (endTimeMs - beginTimeMs));
     }
 #endif
     return PowerErrors::ERR_OK;
@@ -1985,9 +1985,9 @@ PowerErrors PowerMgrService::UnLock(const sptr<IRemoteObject>& remoteObj, const 
     if (endTimeMs - beginTimeMs > RUNNINGLOCK_TIMEOUT_MS) {
         POWER_HILOGI(FEATURE_RUNNING_LOCK, "UnLock interface timeout=%{public}d", (endTimeMs - beginTimeMs));
         HiSysEventWrite(HiviewDFX::HiSysEvent::Domain::POWER, "INTERFACE_CONSUMING_TIMEOUT",
-            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "PID", pid, "UID", uid, "TYPE",
-            static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_RUNNINGLOCK_UNLOCK), "REASON", "",
-            "TIME", (endTimeMs - beginTimeMs));
+            HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "P", pid, "U", uid, "T",
+            static_cast<int32_t>(InterfaceTimeoutType::INTERFACE_TIMEOUT_TYPE_RUNNINGLOCK_UNLOCK), "R", "",
+            "TI", (endTimeMs - beginTimeMs));
     }
 #endif
     return PowerErrors::ERR_OK;

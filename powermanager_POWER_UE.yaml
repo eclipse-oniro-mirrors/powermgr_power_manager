@@ -15,12 +15,12 @@ domain: POWER_UE
 
 SCREEN_ON:
   __BASE: {type: BEHAVIOR, level: CRITICAL, tag: PowerStats, desc: screen on event}
-  PNAMEID: {type: STRING, desc: package name}
-  PVERSIONID: {type: STRING, desc: application version}
-  REASON: {type: STRING, desc: screen on reason}
+  PNI: {type: STRING, desc: package name}
+  PVI: {type: STRING, desc: application version}
+  R: {type: STRING, desc: screen on reason}
 
 SCREEN_OFF:
   __BASE: {type: BEHAVIOR, level: CRITICAL, tag: PowerStats, desc: screen off event}
-  PNAMEID: {type: STRING, desc: package name}
-  PVERSIONID: {type: STRING, desc: application version}
-  REASON: {type: STRING, desc: screen off reason}
+  PNI: {type: STRING, desc: package name}
+  PVI: {type: STRING, desc: application version}
+  R: {type: STRING, desc: screen off reason}
