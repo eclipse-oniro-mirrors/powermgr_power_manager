@@ -707,10 +707,6 @@ void PowerMgrService::SwitchSubscriberInit()
                     POWER_HILOGE(FEATURE_INPUT, "get wakeupController instance error");
                     return;
                 }
-                auto switchAction = powerStateMachine_->GetSwitchActionPtr();
-                if (switchAction != nullptr) {
-                    switchAction->HandleSwitchAction(SwitchActionType::SWITCH_OPEN);
-                }
                 powerStateMachine_->SetSwitchState(true);
                 WakeupDeviceType reason = WakeupDeviceType::WAKEUP_DEVICE_SWITCH;
                 wakeupController->ExecWakeupMonitorByReason(reason);
