@@ -24,6 +24,7 @@ interface OHOS.PowerMgr.IScreenOffPreCallback;
 interface OHOS.PowerMgr.ITakeOverShutdownCallback;
 interface OHOS.PowerMgr.IAsyncShutdownCallback;
 interface OHOS.PowerMgr.ISyncShutdownCallback;
+interface OHOS.PowerMgr.IParallelShutdownCallback;
 interface OHOS.PowerMgr.IPowerRunninglockCallback;
 interface OHOS.PowerMgr.IPowerMgrAsync;
 interface OHOS.PowerMgr.ITakeOverSuspendCallback;
@@ -108,6 +109,10 @@ interface OHOS.PowerMgr.IPowerMgr {
     void UnRegisterShutdownCallbackIpc([in] IAsyncShutdownCallback powerCallback);
     void RegisterShutdownCallbackIpc([in] ISyncShutdownCallback powerCallback, [in] int priorityValue);
     void UnRegisterShutdownCallbackIpc([in] ISyncShutdownCallback powerCallback);
+
+    void RegisterShutdownCallbackIpc([in] IParallelShutdownCallback powerCallback, [out] int powerError);
+    void UnRegisterShutdownCallbackIpc([in] IParallelShutdownCallback powerCallback, [out] int powerError);
+    void VoteShutdownIpc([in] unsigned long identity, [out] int powerError);
 
     void RegisterRunningLockCallbackIpc([in] IPowerRunninglockCallback powerCallback);
     void UnRegisterRunningLockCallbackIpc([in] IPowerRunninglockCallback powerCallback);

@@ -118,6 +118,11 @@ public:
     int32_t UnRegisterShutdownCallbackIpc(const sptr<IAsyncShutdownCallback>& callback) override;
     int32_t RegisterShutdownCallbackIpc(const sptr<ISyncShutdownCallback>& callback, int32_t priorityValue) override;
     int32_t UnRegisterShutdownCallbackIpc(const sptr<ISyncShutdownCallback>& callback) override;
+    int32_t RegisterShutdownCallbackIpc(
+        const sptr<IParallelShutdownCallback>& callback, int32_t& powerError) override;
+    int32_t UnRegisterShutdownCallbackIpc(const sptr<IParallelShutdownCallback>& callback,
+        int32_t& powerError) override;
+    int32_t VoteShutdownIpc(uint64_t identity, int32_t& powerError) override;
     virtual int32_t RegisterUlsrCallbackIpc(const sptr<IUlsrCallback>& callback, int32_t priorityValue,
         int32_t& powerError) override;
     virtual int32_t UnRegisterUlsrCallbackIpc(const sptr<IUlsrCallback>& callback, int32_t& powerError) override;
@@ -229,6 +234,10 @@ public:
     virtual void UnRegisterShutdownCallback(const sptr<IAsyncShutdownCallback>& callback) = 0;
     virtual void RegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority) = 0;
     virtual void UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback) = 0;
+
+    virtual PowerErrors RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
+    virtual PowerErrors UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
+    virtual PowerErrors VoteShutdown(uint64_t identity) = 0;
 
     virtual bool RegisterSuspendTakeoverCallback(
         const sptr<ITakeOverSuspendCallback>& callback, TakeOverSuspendPriority priority) = 0;

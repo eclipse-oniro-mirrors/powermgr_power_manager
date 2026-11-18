@@ -20,6 +20,7 @@
 #include "itakeover_shutdown_callback.h"
 #include "iasync_shutdown_callback.h"
 #include "isync_shutdown_callback.h"
+#include "iparallel_shutdown_callback.h"
 
 namespace OHOS {
 namespace PowerMgr {
@@ -35,6 +36,11 @@ public:
     virtual void RegisterShutdownCallback(
         const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority) = 0;
     virtual void UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback) = 0;
+
+    virtual PowerErrors RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
+    virtual PowerErrors UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback) = 0;
+
+    virtual PowerErrors VoteShutdown(uint64_t identity) = 0;
 };
 } // namespace PowerMgr
 } // namespace OHOS

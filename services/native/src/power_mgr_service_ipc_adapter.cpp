@@ -545,6 +545,29 @@ int32_t PowerMgrServiceAdapter::UnRegisterShutdownCallbackIpc(const sptr<ISyncSh
     return ERR_OK;
 }
 
+int32_t PowerMgrServiceAdapter::RegisterShutdownCallbackIpc(
+    const sptr<IParallelShutdownCallback>& callback, int32_t& powerError)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::RegisterShutdownCallback Parallel", false);
+    powerError = static_cast<int32_t>(RegisterShutdownCallback(callback));
+    return ERR_OK;
+}
+
+int32_t PowerMgrServiceAdapter::UnRegisterShutdownCallbackIpc(
+    const sptr<IParallelShutdownCallback>& callback, int32_t& powerError)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::UnRegisterShutdownCallback Parallel", false);
+    powerError = static_cast<int32_t>(UnRegisterShutdownCallback(callback));
+    return ERR_OK;
+}
+
+int32_t PowerMgrServiceAdapter::VoteShutdownIpc(uint64_t identity, int32_t& powerError)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::VoteShutdown", false);
+    powerError = static_cast<int32_t>(VoteShutdown(identity));
+    return ERR_OK;
+}
+
 int32_t PowerMgrServiceAdapter::IsStandbyIpc(bool& isStandby, int32_t& powerError)
 {
     PowerXCollie powerXCollie("PowerMgrServiceAdapter::IsStandby", false);

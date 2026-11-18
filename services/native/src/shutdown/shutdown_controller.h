@@ -21,10 +21,16 @@
 #include "power_errors.h"
 #include "want.h"
 #include <atomic>
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 
 #include "shutdown/iasync_shutdown_callback.h"
 #include "shutdown/isync_shutdown_callback.h"
+#include "shutdown/iparallel_shutdown_callback.h"
 #include "shutdown/itakeover_shutdown_callback.h"
 #include "shutdown/takeover_info.h"
 #include "shutdown_callback_holer.h"
@@ -51,18 +57,24 @@ public:
     void AddCallback(const sptr<ITakeOverShutdownCallback>& callback, ShutdownPriority priority);
     void AddCallback(const sptr<IAsyncShutdownCallback>& callback, ShutdownPriority priority);
     void AddCallback(const sptr<ISyncShutdownCallback>& callback, ShutdownPriority priority);
+    void AddCallback(const sptr<IParallelShutdownCallback>& callback);
     void RemoveCallback(const sptr<ITakeOverShutdownCallback>& callback);
     void RemoveCallback(const sptr<IAsyncShutdownCallback>& callback);
     void RemoveCallback(const sptr<ISyncShutdownCallback>& callback);
+    void RemoveCallback(const sptr<IParallelShutdownCallback>& callback);
+    void VoteCallback(uint64_t identity);
 
     bool TriggerTakeOverShutdownCallback(const TakeOverInfo& info);
     bool TriggerTakeOverHibernateCallback(const TakeOverInfo& info);
     void TriggerAsyncShutdownCallback(bool isReboot);
     void TriggerSyncShutdownCallback(bool isReboot);
+    void TriggerParallelShutdownCallback(bool isReboot);
 
 private:
     using IntentWant = OHOS::AAFwk::Want;
     PowerErrors RebootOrShutdown(const std::string& reason, bool isReboot, bool force = false);
+    void TriggerShutdownCallbacks(bool isReboot, bool force);
+    void ExecuteShutdownAction(const std::string& reason, bool isReboot);
     void Prepare(bool isReboot);
     void TurnOffScreen();
     void PublishShutdownEvent() const;
@@ -83,6 +95,27 @@ private:
     sptr<ShutdownCallbackHolder> takeoverShutdownCallbackHolder_;
     sptr<ShutdownCallbackHolder> asyncShutdownCallbackHolder_;
     sptr<ShutdownCallbackHolder> syncShutdownCallbackHolder_;
+    sptr<ShutdownCallbackHolder> parallelShutdownCallbackHolder_;
+
+    class CompletionTracker {
+    public:
+        void Reset();
+        void MarkParallelDone();
+        void MarkSerialDone();
+        bool WaitForBoth(std::chrono::seconds timeout);
+        bool IsParallelDone() const { return parallelDone_.load(); }
+        bool IsSerialDone() const { return serialDone_.load(); }
+    private:
+        std::atomic<bool> parallelDone_{false};
+        std::atomic<bool> serialDone_{false};
+        std::mutex mutex_;
+        std::condition_variable cv_;
+    };
+
+    CompletionTracker completionTracker_;
+    std::unordered_map<uint64_t, sptr<IParallelShutdownCallback>> identityMap_;
+    std::mutex identityMutex_;
+    std::atomic<int32_t> pendingVoteCount_{0};
 
     std::atomic<bool> started_;
     std::unique_ptr<IDevicePowerAction> devicePowerAction_;

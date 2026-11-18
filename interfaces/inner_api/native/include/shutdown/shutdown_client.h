@@ -23,6 +23,7 @@
 #include "itakeover_shutdown_callback.h"
 #include "iasync_shutdown_callback.h"
 #include "isync_shutdown_callback.h"
+#include "iparallel_shutdown_callback.h"
 #include "power_errors.h"
 
 namespace OHOS {
@@ -89,6 +90,12 @@ public:
      * @param callback Registered callback to synchronous shutdown or reboot.
      */
     void UnRegisterShutdownCallback(const sptr<ISyncShutdownCallback>& callback);
+
+    PowerErrors RegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback);
+
+    PowerErrors UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback);
+
+    PowerErrors VoteShutdown(uint64_t identity);
 
 private:
     ErrCode Connect();
