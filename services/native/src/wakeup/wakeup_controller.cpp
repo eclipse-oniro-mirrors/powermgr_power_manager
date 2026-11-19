@@ -655,6 +655,13 @@ void WakeupController::ControlListener(WakeupDeviceType reason)
         return;
     }
 
+    if (reason == WakeupDeviceType::WAKEUP_DEVICE_SWITCH) {
+        auto switchAction = stateMachine_->GetSwitchActionPtr();
+        if (switchAction != nullptr) {
+            switchAction->HandleSwitchAction(SwitchActionType::SWITCH_OPEN);
+        }
+    }
+
     if (NeedToSkipCurrentWakeup(pms, reason)) {
         return;
     }
