@@ -1361,14 +1361,16 @@ PowerErrors PowerMgrService::SuspendDevice(
     std::lock_guard lock(suspendMutex_);
     pid_t pid = IPCSkeleton::GetCallingPid();
     auto uid = IPCSkeleton::GetCallingAppUid();
-    if (!Permission::IsSystem()) {
-        POWER_HILOGI(FEATURE_SUSPEND, "SuspendDevice failed, System permission intercept");
-        return PowerErrors::ERR_SYSTEM_API_DENIED;
-    }
-    int32_t version = Permission::GetCallerApiTargetVersion();
-    if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
-        POWER_HILOGI(FEATURE_SUSPEND, "SuspendDevice failed, The application does not have the permission");
-        return PowerErrors::ERR_PERMISSION_DENIED;
+    if (uid != 0) {
+        if (!Permission::IsSystem()) {
+            POWER_HILOGI(FEATURE_SUSPEND, "SuspendDevice failed, System permission intercept");
+            return PowerErrors::ERR_SYSTEM_API_DENIED;
+        }
+        int32_t version = Permission::GetCallerApiTargetVersion();
+        if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
+            POWER_HILOGI(FEATURE_SUSPEND, "SuspendDevice failed, The application does not have the permission");
+            return PowerErrors::ERR_PERMISSION_DENIED;
+        }
     }
 
 #ifdef POWER_MANAGER_ENABLE_WATCH_BOOT_COMPLETED
@@ -1406,17 +1408,19 @@ PowerErrors PowerMgrService::WakeupDevice(
     int64_t callTimeMs, WakeupDeviceType reason, const std::string& details)
 {
     std::lock_guard lock(wakeupMutex_);
-    if (!Permission::IsSystem()) {
-        POWER_HILOGI(FEATURE_WAKEUP, "WakeupDevice failed, System permission intercept");
-        return PowerErrors::ERR_SYSTEM_API_DENIED;
-    }
-    int32_t version = Permission::GetCallerApiTargetVersion();
-    if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
-        POWER_HILOGI(FEATURE_SUSPEND, "WakeupDevice failed, The application does not have the permission");
-        return PowerErrors::ERR_PERMISSION_DENIED;
-    }
     pid_t pid = IPCSkeleton::GetCallingPid();
     auto uid = IPCSkeleton::GetCallingAppUid();
+    if (uid != 0) {
+        if (!Permission::IsSystem()) {
+            POWER_HILOGI(FEATURE_WAKEUP, "WakeupDevice failed, System permission intercept");
+            return PowerErrors::ERR_SYSTEM_API_DENIED;
+        }
+        int32_t version = Permission::GetCallerApiTargetVersion();
+        if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
+            POWER_HILOGI(FEATURE_SUSPEND, "WakeupDevice failed, The application does not have the permission");
+            return PowerErrors::ERR_PERMISSION_DENIED;
+        }
+    }
 
 #ifdef POWER_MANAGER_ENABLE_WATCH_BOOT_COMPLETED
     if (isBootCompleted_ == false) {
@@ -1486,15 +1490,18 @@ PowerErrors PowerMgrService::OverrideScreenOffTime(int64_t timeout)
     std::lock_guard lock(screenMutex_);
     pid_t pid = IPCSkeleton::GetCallingPid();
     auto uid = IPCSkeleton::GetCallingAppUid();
-    if (!Permission::IsSystem()) {
-        POWER_HILOGI(COMP_SVC, "OverrideScreenOffTime failed, System permission intercept");
-        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    if (uid != 0) {
+        if (!Permission::IsSystem()) {
+            POWER_HILOGI(COMP_SVC, "OverrideScreenOffTime failed, System permission intercept");
+            return PowerErrors::ERR_SYSTEM_API_DENIED;
+        }
+        int32_t version = Permission::GetCallerApiTargetVersion();
+        if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
+            POWER_HILOGI(FEATURE_SUSPEND, "OverrideScreenOffTime failed, The application does not have the permission");
+            return PowerErrors::ERR_PERMISSION_DENIED;
+        }
     }
-    int32_t version = Permission::GetCallerApiTargetVersion();
-    if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
-        POWER_HILOGI(FEATURE_SUSPEND, "OverrideScreenOffTime failed, The application does not have the permission");
-        return PowerErrors::ERR_PERMISSION_DENIED;
-    }
+
 #ifdef POWER_MANAGER_ENABLE_SCREEN_DECOUPLING
     POWER_HILOGI(COMP_SVC, "OverrideScreenOffTime is not supported");
     return PowerErrors::ERR_CAPABILITY_NOT_SUPPORTED;
@@ -1510,15 +1517,19 @@ PowerErrors PowerMgrService::OverrideScreenOffTime(int64_t timeout)
 PowerErrors PowerMgrService::RestoreScreenOffTime()
 {
     std::lock_guard lock(screenMutex_);
-    if (!Permission::IsSystem()) {
-        POWER_HILOGI(COMP_SVC, "RestoreScreenOffTime failed, System permission intercept");
-        return PowerErrors::ERR_SYSTEM_API_DENIED;
+    auto uid = IPCSkeleton::GetCallingAppUid();
+    if (uid != 0) {
+        if (!Permission::IsSystem()) {
+            POWER_HILOGI(COMP_SVC, "RestoreScreenOffTime failed, System permission intercept");
+            return PowerErrors::ERR_SYSTEM_API_DENIED;
+        }
+        int32_t version = Permission::GetCallerApiTargetVersion();
+        if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
+            POWER_HILOGI(FEATURE_SUSPEND, "RestoreScreenOffTime failed, The application does not have the permission");
+            return PowerErrors::ERR_PERMISSION_DENIED;
+        }
     }
-    int32_t version = Permission::GetCallerApiTargetVersion();
-    if (version >= API19 && !Permission::IsPermissionGranted("ohos.permission.POWER_MANAGER")) {
-        POWER_HILOGI(FEATURE_SUSPEND, "RestoreScreenOffTime failed, The application does not have the permission");
-        return PowerErrors::ERR_PERMISSION_DENIED;
-    }
+
 #ifdef POWER_MANAGER_ENABLE_SCREEN_DECOUPLING
     POWER_HILOGI(COMP_SVC, "RestoreScreenOffTime is not supported");
     return PowerErrors::ERR_CAPABILITY_NOT_SUPPORTED;

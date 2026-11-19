@@ -251,7 +251,9 @@ uint32_t DeviceStateAction::SetDisplayState(DisplayState state, StateChangeReaso
             break;
     }
     dispCallback_->notify_ = actionCallback_;
+    std::string identity = IPCSkeleton::ResetCallingIdentity();
     bool ret = DisplayPowerMgrClient::GetInstance().SetDisplayState(dispState, reason);
+    IPCSkeleton::SetCallingIdentity(identity);
     uint32_t ffrtId = ffrt::this_task::get_id();
     POWER_HILOGI(FEATURE_POWER_STATE, "Set display state finished, ret=%{public}d, ffrtId=%{public}u", ret, ffrtId);
     return ret ? ActionResult::SUCCESS : ActionResult::FAILED;

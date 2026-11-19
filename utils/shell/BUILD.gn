@@ -53,4 +53,8 @@ ohos_executable("power-shell") {
   install_enable = true
   subsystem_name = "powermgr"
   part_name = "${powermgr_part_name}"
+
+  if (power_manager_feature_support_usr_symlink) {
+    symlink_target_name = [ "../usr/bin/power-shell" ]
+  }
 }

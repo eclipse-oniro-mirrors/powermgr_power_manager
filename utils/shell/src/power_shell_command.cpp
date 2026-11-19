@@ -18,9 +18,11 @@
 #include <cxxabi.h>
 #endif
 #include <cerrno>
+#include <unistd.h>
 #include <string_ex.h>
 #include <sstream>
 #include "parameters.h"
+#include "power_errors.h"
 #include "power_mgr_client.h"
 #ifdef HAS_DISPLAY_MANAGER_PART
 #include "display_power_mgr_client.h"
@@ -31,6 +33,9 @@ namespace PowerMgr {
 
 bool PowerShellCommand::IsDeveloperMode()
 {
+    if (getuid() == 0) {
+        return true;
+    }
     return OHOS::system::GetBoolParameter("const.security.developermode.state", true);
 }
 
@@ -327,8 +332,16 @@ ErrCode PowerShellCommand::RunAsSuspendCommand()
         return ERR_PERMISSION_DENIED;
     }
     PowerMgrClient& client = PowerMgrClient::GetInstance();
-    client.SuspendDevice(SuspendDeviceType::SUSPEND_DEVICE_REASON_POWER_KEY);
-    resultReceiver_.append("SuspendDevice is called\n");
+    PowerErrors ret = client.SuspendDevice(SuspendDeviceType::SUSPEND_DEVICE_REASON_POWER_KEY);
+    if (ret == PowerErrors::ERR_OK) {
+        resultReceiver_.append("SuspendDevice is called\n");
+    } else {
+        resultReceiver_.append("SuspendDevice failed:");
+        resultReceiver_.append(GetErrorMessage(ret));
+        resultReceiver_.append("(");
+        resultReceiver_.append(std::to_string(static_cast<int32_t>(ret)));
+        resultReceiver_.append(")\n");
+    }
     return ERR_OK;
 }
 
