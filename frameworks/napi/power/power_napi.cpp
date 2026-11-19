@@ -98,18 +98,12 @@ PowerErrors GetHibernateCallbackArg(napi_env env, napi_callback_info info, napi_
         return PowerErrors::ERR_PARAM_INVALID;
     }
     for (const char* name : HIBERNATE_METHODS) {
-        bool hasMethod = false;
-        if (napi_has_named_property(env, argv[INDEX_0], name, &hasMethod) != napi_ok || !hasMethod) {
-            POWER_HILOGE(FEATURE_SUSPEND,
-                "RegisterHibernateCallback ERR_USER_PARAM_INVALID: %{public}s missing", name);
-            return PowerErrors::ERR_USER_PARAM_INVALID;
-        }
         napi_value method = nullptr;
         napi_valuetype methodType = napi_undefined;
         if (napi_get_named_property(env, argv[INDEX_0], name, &method) != napi_ok ||
             napi_typeof(env, method, &methodType) != napi_ok || methodType != napi_function) {
             POWER_HILOGE(FEATURE_SUSPEND,
-                "RegisterHibernateCallback ERR_PARAM_INVALID: %{public}s not a function", name);
+                "RegisterHibernateCallback ERR_PARAM_INVALID: %{public}s missing or not a function", name);
             return PowerErrors::ERR_PARAM_INVALID;
         }
     }

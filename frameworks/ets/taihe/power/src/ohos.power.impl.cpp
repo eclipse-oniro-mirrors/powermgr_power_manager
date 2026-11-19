@@ -50,16 +50,13 @@ PowerErrors GetHibernateCallbackMethodStatus(ani_env* env, ani_object object, an
         return PowerErrors::ERR_OK;
     }
     ani_ref property = nullptr;
-    if (env->Object_GetPropertyByName_Ref(object, name, &property) != ANI_OK || property == nullptr) {
-        return PowerErrors::ERR_USER_PARAM_INVALID;
-    }
     ani_boolean isNullish = false;
     ani_type propertyType = nullptr;
-    if (env->Reference_IsNullishValue(property, &isNullish) != ANI_OK || isNullish ||
-        env->Object_GetType(static_cast<ani_object>(property), &propertyType) != ANI_OK) {
-        return PowerErrors::ERR_PARAM_INVALID;
-    }
-    if (env->Class_FindMethod(reinterpret_cast<ani_class>(propertyType), "unsafeCall", nullptr, &method) != ANI_OK) {
+    if (env->Object_GetPropertyByName_Ref(object, name, &property) != ANI_OK || property == nullptr ||
+        env->Reference_IsNullishValue(property, &isNullish) != ANI_OK || isNullish ||
+        env->Object_GetType(static_cast<ani_object>(property), &propertyType) != ANI_OK ||
+        env->Class_FindMethod(reinterpret_cast<ani_class>(propertyType), "unsafeCall", nullptr,
+            &method) != ANI_OK) {
         return PowerErrors::ERR_PARAM_INVALID;
     }
     return PowerErrors::ERR_OK;
