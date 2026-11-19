@@ -544,7 +544,7 @@ bool RunningLockMgr::ValidateLockForEnable(const sptr<IRemoteObject>& remoteObj,
     }
     if (lockInner->GetState() == RunningLockState::RUNNINGLOCK_STATE_ENABLE) {
         // Lock is already enabled
-        POWER_HILOGI(FEATURE_RUNNING_LOCK, "L N=%{public}s", lockInner->GetName().c_str());
+        POWER_HILOGD(FEATURE_RUNNING_LOCK, "L N=%{public}s", lockInner->GetName().c_str());
         return false;
     }
     auto iterator = lockCounters_.find(lockInnerParam.type);
@@ -612,7 +612,7 @@ bool RunningLockMgr::UnLock(const sptr<IRemoteObject> remoteObj, const std::stri
         lockInnerParam.name.c_str(), lockInnerParam.type);
     if (lockInner->GetState() == RunningLockState::RUNNINGLOCK_STATE_DISABLE) {
         // Lock is already disabled
-        POWER_HILOGI(FEATURE_RUNNING_LOCK, "UL N=%{public}s", lockInner->GetName().c_str());
+        POWER_HILOGD(FEATURE_RUNNING_LOCK, "UL N=%{public}s", lockInner->GetName().c_str());
         return false;
     }
     auto iterator = lockCounters_.find(lockInnerParam.type);
