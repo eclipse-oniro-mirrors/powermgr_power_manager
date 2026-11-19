@@ -436,7 +436,7 @@ void PowerModeModule::CallbackManager::AddCallback(const sptr<IPowerModeCallback
 void PowerModeModule::CallbackManager::AddCallbackPidUid(const sptr<IRemoteObject>& callback)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     cachedRegister_.emplace(callback, std::make_pair(pid, uid));
 }
 

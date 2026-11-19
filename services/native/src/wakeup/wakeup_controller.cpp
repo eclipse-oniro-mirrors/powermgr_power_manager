@@ -613,7 +613,7 @@ void WakeupController::HandleWakeup(const sptr<PowerMgrService>& pms, WakeupDevi
 #endif
 
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     uint32_t ffrtId = ffrt::this_task::get_id();
     POWER_HILOGI(FEATURE_WAKEUP, "[UL_POWER] Try to wakeup device, pid=%{public}d, uid=%{public}d, ffrtId=%{public}u",
         pid, uid, ffrtId);

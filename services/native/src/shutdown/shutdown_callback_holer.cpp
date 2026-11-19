@@ -75,7 +75,7 @@ void ShutdownCallbackHolder::AddCallback(const sptr<IRemoteObject>& callback, Sh
 void ShutdownCallbackHolder::AddCallbackPidUid(const sptr<IRemoteObject>& callback)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     cachedRegister_.emplace(callback, std::make_pair(pid, uid));
 }
 

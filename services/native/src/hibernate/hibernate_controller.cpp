@@ -78,7 +78,7 @@ void HibernateController::AddCallbackToHolder(
 void HibernateController::AddCallbackPidUid(const sptr<ISyncHibernateCallback>& cb)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
-    auto uid = IPCSkeleton::GetCallingUid();
+    auto uid = IPCSkeleton::GetCallingAppUid();
     cachedRegister_.emplace(cb, std::make_pair(pid, uid));
 }
 
