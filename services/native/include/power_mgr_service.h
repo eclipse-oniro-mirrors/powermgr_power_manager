@@ -187,6 +187,7 @@ public:
         InterfaceCallFilteringStrategy strategy, const sptr<IRemoteObject>& token) override;
     virtual PowerErrors GetPowerConfig(const std::string& sceneName, std::string& configVal) override;
     virtual PowerErrors SetPowerConfig(const std::string& sceneName, const std::string& configVal) override;
+    virtual PowerErrors DelaySuspendDevice(SuspendDeviceType type, int64_t delayMs) override;
 
     void SetEnableDoze(bool enable);
     void RegisterShutdownCallback(const sptr<ITakeOverShutdownCallback>& callback, ShutdownPriority priority) override;
@@ -258,6 +259,9 @@ public:
     void OnUlsrTimerExpired();
 #endif
     void OnChargeStateChanged();
+    bool IsInCallState();
+    void DoDelaySuspendDevice(SuspendDeviceType type);
+    void CancelDelaySuspendTimer(UserActivityType type);
 
     inline PowerModeModule& GetPowerModeModule()
     {
@@ -385,6 +389,8 @@ private:
     static constexpr int32_t INIT_KEY_MONITOR_DELAY_MS = 1000;
     static constexpr int32_t HALL_REPORT_INTERVAL = 0;
     static constexpr uint32_t HALL_SAMPLING_RATE = 100000000;
+    // Upper bound of the delay accepted by DelaySuspendDevice.
+    static constexpr int64_t DELAY_SUSPEND_MAX_DELAY_MS = 60000;
     static constexpr const char* SETTING_POWER_WAKEUP_DOUBLE_KEY {"settings.power.wakeup_double_click"};
     static std::atomic_bool isBootCompleted_;
     static std::atomic_bool isNeedReInit_ ;

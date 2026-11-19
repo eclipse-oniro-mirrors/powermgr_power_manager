@@ -271,6 +271,10 @@ public:
     {
         return PowerErrors::ERR_OK;
     }
+    PowerErrors DelaySuspendDevice(SuspendDeviceType type, int64_t delayMs)
+    {
+        return PowerErrors::ERR_OK;
+    }
     PowerErrors SetForceTimingOut(bool enabled, const sptr<IRemoteObject>& token)
     {
         return PowerErrors::ERR_OK;
@@ -660,5 +664,21 @@ HWTEST_F(PowerMgrServiceIpcAdapterTest, PowerMgrServiceIpcAdapter016, TestSize.L
     EXPECT_EQ(ret, ERR_OK);
     EXPECT_EQ(powerSubMode, static_cast<int32_t>(PowerSubMode::SUB_MODE_EMERGENCY));
     POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter016 function end!");
+}
+
+/**
+ * @tc.name: PowerMgrServiceIpcAdapter017
+ * @tc.desc: test PowerMgrServiceIpcAdapter.DelaySuspendDeviceIpc
+ * @tc.type: FUNC
+ */
+HWTEST_F(PowerMgrServiceIpcAdapterTest, PowerMgrServiceIpcAdapter017, TestSize.Level2) {
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter017 function start!");
+    auto adapter = DelayedSpSingleton<TestPowerMgrServiceAdapter>::GetInstance();
+    int32_t powerError = static_cast<int32_t>(PowerErrors::ERR_CONNECTION_FAIL);
+    int32_t result = adapter->DelaySuspendDeviceIpc(
+        static_cast<int32_t>(SuspendDeviceType::SUSPEND_DEVICE_REASON_LID), 3000, powerError);
+    EXPECT_EQ(result, ERR_OK);
+    EXPECT_EQ(powerError, static_cast<int32_t>(PowerErrors::ERR_OK));
+    POWER_HILOGI(LABEL_TEST, "PowerMgrServiceIpcAdapter017 function end!");
 }
 }

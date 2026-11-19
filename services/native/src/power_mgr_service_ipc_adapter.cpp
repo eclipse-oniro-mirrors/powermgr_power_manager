@@ -695,6 +695,13 @@ int32_t PowerMgrServiceAdapter::SetInterfaceCallFilteringStrategyIpc(
     return ERR_OK;
 }
 
+int32_t PowerMgrServiceAdapter::DelaySuspendDeviceIpc(int32_t type, int64_t delayMs, int32_t& powerError)
+{
+    PowerXCollie powerXCollie("PowerMgrServiceAdapter::DelaySuspendDeviceIpc", false);
+    powerError = static_cast<int32_t>(DelaySuspendDevice(static_cast<SuspendDeviceType>(type), delayMs));
+    return ERR_OK;
+}
+
 int32_t PowerMgrServiceAdapter::GetPowerConfigIpc(
     const std::string& sceneName, std::string& configVal, int32_t& powerError)
 {

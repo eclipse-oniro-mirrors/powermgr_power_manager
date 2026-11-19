@@ -23,6 +23,7 @@ group("fuzztest") {
     "asyncshutdowncallback_fuzzer:AsyncShutdownCallbackFuzzTest",
     "ulsrcallback_fuzzer:UlsrCallbackFuzzTest",
     "createrunninglock_fuzzer:CreateRunningLockFuzzTest",
+    "delaysuspenddevice_fuzzer:DelaySuspendDeviceFuzzTest",
     "forcesuspenddevice_fuzzer:ForceSuspendDeviceFuzzTest",
     "forcesuspendignoringwakelock_fuzzer:ForceSuspendExFuzzTest",
     "getsetdevicemode_fuzzer:GetSetDeviceModeFuzzTest",

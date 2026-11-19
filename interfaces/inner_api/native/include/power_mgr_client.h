@@ -407,6 +407,20 @@ public:
     PowerErrors SetInterfaceCallFilteringStrategy(InterfaceCallFilteringStrategy strategy);
 
     /**
+     * Arm a one-shot delayed suspend, used when the foldable lid is closed.
+     * If a call is active the screen-off timeout is refreshed and ERR_SCREEN_OFF_BLOCKED is
+     * returned, so the caller can power on the outer screen instead.
+     * Only the first call within one lid-close period takes effect.
+     * @param type Reason reported to the state machine when the task fires.
+     * @param delayMs Delay in milliseconds before suspending, 0 for immediate, range [0, 60000].
+     * @return ERR_OK if armed, ERR_SCREEN_OFF_BLOCKED if blocked by a call, ERR_PARAM_INVALID if
+     *         delayMs is out of range.
+     * @throws ERR_SYSTEM_API_DENIED if the caller is not a system application.
+     * @throws ERR_PERMISSION_DENIED if the caller does not hold ohos.permission.POWER_MANAGER.
+     */
+    PowerErrors DelaySuspendDevice(SuspendDeviceType type, int64_t delayMs);
+
+    /**
      * Register the asynchronous running lock state change callback interface.
      * @param callback Registered callback to running lock state change.
      *     The callback will execute asynchronously when holding or unholding running lock.

@@ -1465,7 +1465,7 @@ HWTEST_F(PowerMgrServiceNativeTest, PowerMgrServiceNative043, TestSize.Level1)
     bool ret2 = g_pmsTest->RefreshActivityInner(CALLTIMEMS, UserActivityType::USER_ACTIVITY_TYPE_BUTTON, false);
     EXPECT_FALSE(ret2);
 
-    stateMachine->stateAction_.reset();
+    stateMachine->Init();
     POWER_HILOGI(LABEL_TEST, "PowerMgrServiceNative043 end!");
 }
 
@@ -1492,8 +1492,204 @@ HWTEST_F(PowerMgrServiceNativeTest, PowerMgrServiceNative044, TestSize.Level1)
     bool ret2 = g_pmsTest->RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_BUTTON, false);
     EXPECT_TRUE(ret2);
 
-    stateMachine->stateAction_.reset();
+    stateMachine->Init();
     POWER_HILOGI(LABEL_TEST, "PowerMgrServiceNative044 end!");
+}
+
+/**
+ * @tc.name: DelaySuspendDevice001
+ * @tc.desc: Test DelaySuspendDevice permission and parameter validation
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerMgrServiceNativeTest, DelaySuspendDevice001, TestSize.Level2)
+{
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice001 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_TRUE(pmsTest != nullptr);
+    constexpr int64_t DELAY_MS = 3000;
+    constexpr SuspendDeviceType REASON = SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH;
+    // No system permission
+    g_isSystem = false;
+    g_isPermissionGranted = true;
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON, DELAY_MS), PowerErrors::ERR_SYSTEM_API_DENIED);
+    // System permission but no POWER_MANAGER permission
+    g_isSystem = true;
+    g_isPermissionGranted = false;
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON, DELAY_MS), PowerErrors::ERR_PERMISSION_DENIED);
+    g_isPermissionGranted = true;
+    // Out of range delay: validation lives on the service side, the client only forwards
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON, -1), PowerErrors::ERR_PARAM_INVALID);
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON,
+        PowerMgrService::DELAY_SUSPEND_MAX_DELAY_MS + 1), PowerErrors::ERR_PARAM_INVALID);
+    // A rejected request must not arm the task, otherwise the next lid-close would be swallowed
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice001 end!");
+}
+
+/**
+ * @tc.name: DelaySuspendDevice002
+ * @tc.desc: Test IsInCallState fail-open and the ERR_SCREEN_OFF_BLOCKED contract
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerMgrServiceNativeTest, DelaySuspendDevice002, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice002 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_TRUE(pmsTest != nullptr);
+    g_isSystem = true;
+    g_isPermissionGranted = true;
+    constexpr SuspendDeviceType REASON = SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH;
+    // Fail-open: call_manager is not compiled in or its SA is not running here, both read as no
+    // call. The live-call branch depends on an external SA and is covered manually.
+    EXPECT_FALSE(pmsTest->IsInCallState());
+    // DMS switches the outer screen on only for this exact value, it is part of the contract
+    EXPECT_EQ(static_cast<int32_t>(PowerErrors::ERR_SCREEN_OFF_BLOCKED), 4900701);
+    // No SuspendDeviceType maps to a call block, a normal lid-close suspend stays unblockable.
+    EXPECT_EQ(PowerStateMachine::MapReasonToBlockType(REASON),
+        PowerStateMachine::ScreenOffBlockType::NONE);
+    // Idle path: accepted and armed, and the longest delay is used so it cannot fire mid-test
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON,
+        PowerMgrService::DELAY_SUSPEND_MAX_DELAY_MS), PowerErrors::ERR_OK);
+    EXPECT_NE(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    pmsTest->CancelDelaySuspendTimer(UserActivityType::USER_ACTIVITY_TYPE_ATTENTION);
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice002 end!");
+}
+
+/**
+ * @tc.name: DelaySuspendDevice003
+ * @tc.desc: Test the debounce re-arm and which refresh types cancel the task
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerMgrServiceNativeTest, DelaySuspendDevice003, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice003 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_TRUE(pmsTest != nullptr);
+    g_isSystem = true;
+    g_isPermissionGranted = true;
+    auto stateMachine = pmsTest->GetPowerStateMachine();
+    ASSERT_TRUE(stateMachine != nullptr);
+    ::testing::NiceMock<MockStateAction>* stateActionMock = new ::testing::NiceMock<MockStateAction>;
+    stateMachine->EnableMock(stateActionMock);
+    EXPECT_CALL(*stateActionMock, GetDisplayState()).WillRepeatedly(::testing::Return(DisplayState::DISPLAY_ON));
+    EXPECT_CALL(*stateActionMock, SetDisplayState(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return(ActionResult::SUCCESS));
+    constexpr SuspendDeviceType REASON = SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH;
+    // Arm with the longest accepted delay so the task cannot fire while this test runs
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON,
+        PowerMgrService::DELAY_SUSPEND_MAX_DELAY_MS), PowerErrors::ERR_OK);
+    EXPECT_NE(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    // Debounce: a re-entrant request cancels the pending task and re-arms a fresh one
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON,
+        PowerMgrService::DELAY_SUSPEND_MAX_DELAY_MS), PowerErrors::ERR_OK);
+    EXPECT_NE(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    // Program-sourced types must not cancel the task, callTimeMs 0 bypasses throttling.
+    pmsTest->RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_OTHER, false);
+    pmsTest->RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_SWITCH, false);
+    pmsTest->RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_CABLE, false);
+    pmsTest->RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_APPLICATION, false);
+    pmsTest->RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_SOFTWARE, false);
+    EXPECT_NE(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    // Real user input (eye detection / touch reported by swing) cancels the task
+    pmsTest->RefreshActivityInner(0, UserActivityType::USER_ACTIVITY_TYPE_TOUCH, false);
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    // Cancelling twice is a no-op and never crashes on an unarmed timer slot
+    pmsTest->CancelDelaySuspendTimer(UserActivityType::USER_ACTIVITY_TYPE_ATTENTION);
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    stateMachine->Init();
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice003 end!");
+}
+
+/**
+ * @tc.name: DelaySuspendDevice004
+ * @tc.desc: Test DoDelaySuspendDevice is a no-op once cancelled, otherwise reaches INACTIVE
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerMgrServiceNativeTest, DelaySuspendDevice004, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice004 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_TRUE(pmsTest != nullptr);
+    g_isSystem = true;
+    g_isPermissionGranted = true;
+    auto stateMachine = pmsTest->GetPowerStateMachine();
+    ASSERT_TRUE(stateMachine != nullptr);
+    ::testing::NiceMock<MockStateAction>* stateActionMock = new ::testing::NiceMock<MockStateAction>;
+    stateMachine->EnableMock(stateActionMock);
+    EXPECT_CALL(*stateActionMock, GetDisplayState()).WillRepeatedly(::testing::Return(DisplayState::DISPLAY_ON));
+    EXPECT_CALL(*stateActionMock, SetDisplayState(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return(ActionResult::SUCCESS));
+    stateMachine->WakeupDeviceInner(PID, CALLTIMEMS,
+        WakeupDeviceType::WAKEUP_DEVICE_POWER_BUTTON, "test", "test");
+    ASSERT_EQ(stateMachine->GetState(), PowerState::AWAKE);
+    constexpr SuspendDeviceType REASON = SuspendDeviceType::SUSPEND_DEVICE_REASON_SWITCH;
+    // (a) Cancelled before the task ran: the timer slot is cleared, the screen must stay on
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON,
+        PowerMgrService::DELAY_SUSPEND_MAX_DELAY_MS), PowerErrors::ERR_OK);
+    pmsTest->CancelDelaySuspendTimer(UserActivityType::USER_ACTIVITY_TYPE_ATTENTION);
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    EXPECT_EQ(stateMachine->GetState(), PowerState::AWAKE);
+    // (b) Armed and idle: the screen goes off through the state machine, not via SetDisplayState
+    pmsTest->DoDelaySuspendDevice(REASON);
+    EXPECT_EQ(stateMachine->GetState(), PowerState::INACTIVE);
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    // Restore for the following test cases
+    stateMachine->WakeupDeviceInner(PID, CALLTIMEMS,
+        WakeupDeviceType::WAKEUP_DEVICE_POWER_BUTTON, "test", "test");
+    stateMachine->Init();
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice004 end!");
+}
+
+/**
+ * @tc.name: DelaySuspendDevice005
+ * @tc.desc: Test a registered LID screen-off filter blocks both the arming entry and the task body
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerMgrServiceNativeTest, DelaySuspendDevice005, TestSize.Level1)
+{
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice005 start!");
+    auto pmsTest = DelayedSpSingleton<PowerMgrService>::GetInstance();
+    ASSERT_TRUE(pmsTest != nullptr);
+    g_isSystem = true;
+    g_isPermissionGranted = true;
+    auto stateMachine = pmsTest->GetPowerStateMachine();
+    ASSERT_TRUE(stateMachine != nullptr);
+    ::testing::NiceMock<MockStateAction>* stateActionMock = new ::testing::NiceMock<MockStateAction>;
+    stateMachine->EnableMock(stateActionMock);
+    EXPECT_CALL(*stateActionMock, GetDisplayState()).WillRepeatedly(::testing::Return(DisplayState::DISPLAY_ON));
+    EXPECT_CALL(*stateActionMock, SetDisplayState(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return(ActionResult::SUCCESS));
+    stateMachine->WakeupDeviceInner(PID, CALLTIMEMS,
+        WakeupDeviceType::WAKEUP_DEVICE_POWER_BUTTON, "test", "test");
+    ASSERT_EQ(stateMachine->GetState(), PowerState::AWAKE);
+    constexpr SuspendDeviceType REASON = SuspendDeviceType::SUSPEND_DEVICE_REASON_LID;
+    sptr<IRemoteObject> token = sptr<IPCObjectProxy>::MakeSptr(0, u"DelaySuspendDevice005");
+    ASSERT_EQ(pmsTest->SetLidFilteringStrategy(LidFilteringStrategy::LID_CLOSE_FILTERING, token),
+        PowerErrors::ERR_OK);
+    // (a) The arming entry is rejected and the one-shot flag is left untouched
+    EXPECT_EQ(pmsTest->DelaySuspendDevice(REASON,
+        PowerMgrService::DELAY_SUSPEND_MAX_DELAY_MS), PowerErrors::ERR_SCREEN_OFF_BLOCKED);
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    // (b) The task body re-checks the filter, the screen must stay on
+    pmsTest->DoDelaySuspendDevice(REASON);
+    EXPECT_EQ(stateMachine->GetState(), PowerState::AWAKE);
+    // (c) Filter lifted: the very same task suspends normally
+    ASSERT_EQ(pmsTest->SetLidFilteringStrategy(LidFilteringStrategy::LID_CLOSE_NOT_FILTERING, token),
+        PowerErrors::ERR_OK);
+    pmsTest->DoDelaySuspendDevice(REASON);
+    EXPECT_EQ(stateMachine->GetState(), PowerState::INACTIVE);
+    EXPECT_EQ(pmsTest->ffrtTimer_->GetTaskHandlePtr(TIMER_ID_SCREEN_TIMEOUT_CHECK), nullptr);
+    // Restore for the following test cases
+    stateMachine->WakeupDeviceInner(PID, CALLTIMEMS,
+        WakeupDeviceType::WAKEUP_DEVICE_POWER_BUTTON, "test", "test");
+    stateMachine->Init();
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDevice005 end!");
 }
 
 class HibernateCallbackTest : public SyncHibernateCallbackStub {

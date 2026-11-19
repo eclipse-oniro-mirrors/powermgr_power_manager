@@ -148,6 +148,7 @@ public:
         const std::string& sceneName, const std::string& configVal, int32_t& powerError) override;
     virtual int32_t ForceSuspendDeviceIgnoringWakelockIpc(const std::string& tag) override;
     virtual int32_t InterruptForceSuspendIpc() override;
+    virtual int32_t DelaySuspendDeviceIpc(int32_t type, int64_t delayMs, int32_t& powerError) override;
 
     virtual PowerErrors RebootDevice(const std::string& reason) = 0;
     virtual PowerErrors RebootDeviceForDeprecated(const std::string& reason, bool force = false) = 0;
@@ -260,6 +261,7 @@ public:
         LidFilteringStrategy strategy, const sptr<IRemoteObject>& token) = 0;
     virtual PowerErrors SetInterfaceCallFilteringStrategy(
         InterfaceCallFilteringStrategy strategy, const sptr<IRemoteObject>& token) = 0;
+    virtual PowerErrors DelaySuspendDevice(SuspendDeviceType type, int64_t delayMs) = 0;
 
     virtual PowerErrors GetPowerConfig(const std::string& sceneName, std::string& configVal) = 0;
     virtual PowerErrors SetPowerConfig(const std::string& sceneName, const std::string& configVal) = 0;
