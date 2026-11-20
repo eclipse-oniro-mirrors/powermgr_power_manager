@@ -23,8 +23,8 @@ function throwParamError(): void {
     throw new _taihe_BusinessError(401, "Invalid input parameter.");
 }
 
-export function shutdown(reason: string, mode: InvokeMode): void | Promise<void> {
-    if (mode == InvokeMode.SYNC) {
+export function shutdown(reason: string, mode: InvokeMode | undefined): void | Promise<void> {
+    if (mode == undefined || mode == InvokeMode.SYNC) {
         return shutdown(reason);
     }
     if (mode != InvokeMode.ASYNC) {
@@ -42,8 +42,8 @@ export function shutdown(reason: string, mode: InvokeMode): void | Promise<void>
     });
 }
 
-export function reboot(reason: string, mode: InvokeMode): void | Promise<void> {
-    if (mode == InvokeMode.SYNC) {
+export function reboot(reason: string, mode: InvokeMode | undefined): void | Promise<void> {
+    if (mode == undefined || mode == InvokeMode.SYNC) {
         return reboot(reason);
     }
     if (mode != InvokeMode.ASYNC) {
@@ -61,8 +61,8 @@ export function reboot(reason: string, mode: InvokeMode): void | Promise<void> {
     });
 }
 
-export function wakeup(detail: string, mode: InvokeMode): void | Promise<void> {
-    if (mode == InvokeMode.SYNC) {
+export function wakeup(detail: string, mode: InvokeMode | undefined): void | Promise<void> {
+    if (mode == undefined || mode == InvokeMode.SYNC) {
         return wakeup(detail);
     }
     if (mode != InvokeMode.ASYNC) {
@@ -80,8 +80,8 @@ export function wakeup(detail: string, mode: InvokeMode): void | Promise<void> {
     });
 }
 
-export function suspend(isImmediate: boolean | undefined, mode: InvokeMode): void | Promise<void> {
-    if (mode == InvokeMode.SYNC) {
+export function suspend(isImmediate: boolean | undefined, mode: InvokeMode | undefined): void | Promise<void> {
+    if (mode == undefined || mode == InvokeMode.SYNC) {
         return suspend(isImmediate);
     }
     if (mode != InvokeMode.ASYNC) {
