@@ -96,11 +96,6 @@ public:
     PowerErrors UnRegisterShutdownCallback(const sptr<IParallelShutdownCallback>& callback);
 
     PowerErrors VoteShutdown(uint64_t identity);
-
-private:
-    ErrCode Connect();
-
-    sptr<IPowerMgr> proxy_ {nullptr};
 };
 } // namespace PowerMgr
 } // namespace OHOS

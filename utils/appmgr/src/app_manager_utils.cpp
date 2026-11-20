@@ -28,19 +28,13 @@
 namespace OHOS {
 namespace PowerMgr {
 static constexpr uint32_t APP_MGR_SERVICE_ID = 501;
-sptr<OHOS::AppExecFwk::IAppMgr> AppManagerUtils::appManagerInstance_ = nullptr;
 namespace {
 const int32_t API_VERSION_MOD = 1000;
 }
 
 sptr<OHOS::AppExecFwk::IAppMgr> AppManagerUtils::GetAppManagerInstance()
 {
-    if (appManagerInstance_) {
-        return appManagerInstance_;
-    }
-
-    sptr<OHOS::ISystemAbilityManager> abilityMgr =
-        OHOS::SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    auto abilityMgr = OHOS::SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     if (abilityMgr == nullptr) {
         POWER_HILOGE(FEATURE_UTIL, "Failed to get ISystemAbilityManager");
         return nullptr;
@@ -55,8 +49,7 @@ sptr<OHOS::AppExecFwk::IAppMgr> AppManagerUtils::GetAppManagerInstance()
         POWER_HILOGE(FEATURE_UTIL, "Failed to get app manager proxy");
         return nullptr;
     }
-    appManagerInstance_ = appMgrProxy;
-    return appManagerInstance_;
+    return appMgrProxy;
 }
 
 void AppManagerUtils::GetForegroundApplications(std::vector<OHOS::AppExecFwk::AppStateData>& appsData)
@@ -94,9 +87,10 @@ bool AppManagerUtils::IsForegroundApplication(const std::set<std::string>& appNa
 int32_t AppManagerUtils::GetApiTargetVersion()
 {
 #ifdef HAS_ABILITY_RUNTIME_PART
-    static int32_t apiTargetVersion = -1;
-    if (apiTargetVersion != -1) {
-        return apiTargetVersion;
+    static std::atomic<int32_t> apiTargetVersion(-1);
+    int32_t cached = apiTargetVersion.load(std::memory_order_acquire);
+    if (cached != -1) {
+        return cached;
     }
     sptr<OHOS::ISystemAbilityManager> saManager =
         OHOS::SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
@@ -118,7 +112,7 @@ int32_t AppManagerUtils::GetApiTargetVersion()
         return 0;
     }
     int32_t hapApiVersion = bundleInfo.applicationInfo.apiTargetVersion % API_VERSION_MOD;
-    apiTargetVersion = hapApiVersion;
+    apiTargetVersion.store(hapApiVersion, std::memory_order_release);
     POWER_HILOGI(FEATURE_UTIL, "GetApiTargetVersion: hapApiVersion is %{public}d", hapApiVersion);
     return hapApiVersion;
 #else

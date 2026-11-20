@@ -47,11 +47,7 @@ bool PowerMgrDumper::Dump(const std::vector<std::string>& args, std::string& res
     }
     for (auto it = args.begin(); it != args.end(); it++) {
         if (*it == ARGS_RUNNINGLOCK) {
-            auto runningLockMgr = pms->GetRunningLockMgr();
-            if (runningLockMgr == nullptr) {
-                continue;
-            }
-            runningLockMgr->DumpInfo(result);
+            pms->DumpRunningLockInfo(result);
         } else if (*it == ARGS_STATE) {
             auto stateMachine = pms->GetPowerStateMachine();
             if (stateMachine == nullptr) {
@@ -65,11 +61,7 @@ bool PowerMgrDumper::Dump(const std::vector<std::string>& args, std::string& res
                 continue;
             }
             stateMachine->DumpInfo(result);
-            auto runningLockMgr = pms->GetRunningLockMgr();
-            if (runningLockMgr == nullptr) {
-                continue;
-            }
-            runningLockMgr->DumpInfo(result);
+            pms->DumpRunningLockInfo(result);
             break;
         }
     }

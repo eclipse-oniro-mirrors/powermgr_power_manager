@@ -16,6 +16,7 @@
 #ifndef POWERMGR_APP_MANAGER_UTILS_H
 #define POWERMGR_APP_MANAGER_UTILS_H
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -30,9 +31,6 @@ public:
     static bool IsForegroundApplication(const std::set<std::string>& appNames);
     static int32_t GetApiTargetVersion();
     static void GetForegroundBundleNames(std::set<std::string>& bundleNames);
-
-private:
-    static sptr<OHOS::AppExecFwk::IAppMgr> appManagerInstance_;
 };
 
 } // namespace PowerMgr
