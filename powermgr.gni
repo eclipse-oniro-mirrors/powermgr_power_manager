@@ -59,6 +59,9 @@ declare_args() {
   # and enable ForceSuspendDeviceIgnoringWakelock (HDI V1_4, ignore running locks).
   power_manager_feature_enable_force_suspend_ignoring_wakelock = false
   power_manager_feature_multi_user_screen_adaptation = false
+  # Create /usr/bin/power-shell -> ../system/bin/power-shell symlink at packaing,
+  # so power-shell is reachable via the default shell PATH (/usr/bin) without sudo.
+  power_manager_feature_support_usr_symlink = false
 }
 
 defines = []
