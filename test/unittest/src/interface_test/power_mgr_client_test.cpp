@@ -2094,4 +2094,27 @@ HWTEST_F(PowerMgrClientTest, HibernateCallbackExTest002, TestSize.Level0) {
     EXPECT_EQ(unregisterRet, PowerErrors::ERR_CONNECTION_FAIL);
     POWER_HILOGI(LABEL_TEST, "HibernateCallbackExTest002 function end!");
 }
+
+/**
+ * @tc.name: DelaySuspendDeviceTest001
+ * @tc.desc: test PowerMgrClient::DelaySuspendDevice with null proxy and in-process stub
+ * @tc.type: FUNC
+ * @tc.require: issueNone
+ */
+HWTEST_F(PowerMgrClientTest, DelaySuspendDeviceTest001, TestSize.Level0) {
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDeviceTest001 function start!");
+    auto& powerMgrClient = PowerMgrClient::GetInstance();
+    constexpr int64_t delayMs = 3000;
+    constexpr SuspendDeviceType reason = SuspendDeviceType::SUSPEND_DEVICE_REASON_LID;
+
+    PowerMgrClientTest::isProxyNull_ = true;
+    PowerErrors ret = powerMgrClient.DelaySuspendDevice(reason, delayMs);
+    PowerMgrClientTest::isProxyNull_ = false;
+    EXPECT_EQ(ret, PowerErrors::ERR_CONNECTION_FAIL);
+
+    ret = powerMgrClient.DelaySuspendDevice(reason, delayMs);
+    EXPECT_EQ(ret, PowerErrors::ERR_OK);
+    stub_->CancelDelaySuspendTimer(UserActivityType::USER_ACTIVITY_TYPE_ATTENTION);
+    POWER_HILOGI(LABEL_TEST, "DelaySuspendDeviceTest001 function end!");
+}
 } // namespace
