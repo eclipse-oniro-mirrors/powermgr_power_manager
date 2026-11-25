@@ -140,6 +140,48 @@
             "attr":{
                 "priority":"LT"
             }
+        },
+        {
+            "name":"select_dev_connection_mode_title",
+            "value":"Select device connection mode",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"browse_files_option",
+            "value":"Browse files",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"browse_files_option_description",
+            "value":"Slowly charges the connected device while allowing file browsing",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"reverse_charge_option",
+            "value":"Reverse SuperCharge",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"reverse_charge_option_description",
+            "value":"Charges faster, but file browsing is unavailable",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"confirm_button",
+            "value":"OK",
+            "attr":{
+                "priority":"translate"
+            }
         }
     ]
 }

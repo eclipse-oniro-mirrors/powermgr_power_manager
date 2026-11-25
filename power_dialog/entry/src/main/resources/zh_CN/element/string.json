@@ -128,6 +128,48 @@
             "attr":{
                 "priority":"translate"
             }
+        },
+        {
+            "name":"select_dev_connection_mode_title",
+            "value":"选择设备连接模式",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"browse_files_option",
+            "value":"浏览文件",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"browse_files_option_description",
+            "value":"对已连接设备慢速充电，同时可以浏览文件",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"reverse_charge_option",
+            "value":"反向超级快充",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"reverse_charge_option_description",
+            "value":"反向充电更快，但无法浏览已连接设备文件",
+            "attr":{
+                "priority":"translate"
+            }
+        },
+        {
+            "name":"confirm_button",
+            "value":"确定",
+            "attr":{
+                "priority":"translate"
+            }
         }
     ]
 }
